@@ -103,24 +103,26 @@ const uint8_t PREAMBLE[] = { 0xFF, 0x00, 0xFF, 0xA5 };
 #define STAT_CLK_MIN_IDX    0x14
 /* EOF - Pump message structure related stuff like indexes, constants, etc. */
 
-//                             P R E A M B L E     VER   DST           SRC         CFI               LEN   DAT                    CHB   CLB (Check Sum is set when sending command, depends on addresses used)
-byte setCtrlRemote[]    = {0xFF, 0x00, 0xFF, 0xA5, 0x00, PUMP_ADDRESS, MY_ADDRESS, IFLO_CMD_CTRL,    0x01, IFLO_CTRL_REMOTE,      0x00, 0x00};
-byte setCtrlLocal[]     = {0xFF, 0x00, 0xFF, 0xA5, 0x00, PUMP_ADDRESS, MY_ADDRESS, IFLO_CMD_CTRL,    0x01, IFLO_CTRL_LOCAL,       0x00, 0x00};
-byte getStatus[]        = {0xFF, 0x00, 0xFF, 0xA5, 0x00, PUMP_ADDRESS, MY_ADDRESS, IFLO_CMD_STAT,    0x00,                        0x00, 0x00};
-byte extProgOff[]       = {0xFF, 0x00, 0xFF, 0xA5, 0x00, PUMP_ADDRESS, MY_ADDRESS, IFLO_CMD_REG,     0x04, (IFLO_REG_EPRG >> 8), (IFLO_REG_EPRG & 0xFF), (IFLO_EPRG_OFF >> 8), (IFLO_EPRG_OFF & 0xFF), 0x00, 0x00};
-byte runExtProg1[]      = {0xFF, 0x00, 0xFF, 0xA5, 0x00, PUMP_ADDRESS, MY_ADDRESS, IFLO_CMD_REG,     0x04, (IFLO_REG_EPRG >> 8), (IFLO_REG_EPRG & 0xFF), (IFLO_EPRG_P1 >> 8), (IFLO_EPRG_P1 & 0xFF), 0x00, 0x00};
-byte runExtProg2[]      = {0xFF, 0x00, 0xFF, 0xA5, 0x00, PUMP_ADDRESS, MY_ADDRESS, IFLO_CMD_REG,     0x04, (IFLO_REG_EPRG >> 8), (IFLO_REG_EPRG & 0xFF), (IFLO_EPRG_P2 >> 8), (IFLO_EPRG_P2 & 0xFF), 0x00, 0x00};
-byte runExtProg3[]      = {0xFF, 0x00, 0xFF, 0xA5, 0x00, PUMP_ADDRESS, MY_ADDRESS, IFLO_CMD_REG,     0x04, (IFLO_REG_EPRG >> 8), (IFLO_REG_EPRG & 0xFF), (IFLO_EPRG_P3 >> 8), (IFLO_EPRG_P3 & 0xFF), 0x00, 0x00};
-byte runExtProg4[]      = {0xFF, 0x00, 0xFF, 0xA5, 0x00, PUMP_ADDRESS, MY_ADDRESS, IFLO_CMD_REG,     0x04, (IFLO_REG_EPRG >> 8), (IFLO_REG_EPRG & 0xFF), (IFLO_EPRG_P4 >> 8), (IFLO_EPRG_P4 & 0xFF), 0x00, 0x00};
-byte startPump[]        = {0xFF, 0x00, 0xFF, 0xA5, 0x00, PUMP_ADDRESS, MY_ADDRESS, IFLO_CMD_RUN,     0x01, IFLO_RUN_STRT,         0x00, 0x00};
-byte stopPump[]         = {0xFF, 0x00, 0xFF, 0xA5, 0x00, PUMP_ADDRESS, MY_ADDRESS, IFLO_CMD_RUN,     0x01, IFLO_RUN_STOP,         0x00, 0x00}; ///????
+//                               P R E A M B L E      VER   DST           SRC         CFI               LEN   DAT                    CHB   CLB (Check Sum is set when sending command, depends on addresses used)
+uint8_t setCtrlRemote[]    = {0xFF, 0x00, 0xFF, 0xA5, 0x00, PUMP_ADDRESS, MY_ADDRESS, IFLO_CMD_CTRL,    0x01, IFLO_CTRL_REMOTE,      0x00, 0x00};
+uint8_t setCtrlLocal[]     = {0xFF, 0x00, 0xFF, 0xA5, 0x00, PUMP_ADDRESS, MY_ADDRESS, IFLO_CMD_CTRL,    0x01, IFLO_CTRL_LOCAL,       0x00, 0x00};
+uint8_t getStatus[]        = {0xFF, 0x00, 0xFF, 0xA5, 0x00, PUMP_ADDRESS, MY_ADDRESS, IFLO_CMD_STAT,    0x00,                        0x00, 0x00};
+uint8_t extProgOff[]       = {0xFF, 0x00, 0xFF, 0xA5, 0x00, PUMP_ADDRESS, MY_ADDRESS, IFLO_CMD_REG,     0x04, (IFLO_REG_EPRG >> 8), (IFLO_REG_EPRG & 0xFF), (IFLO_EPRG_OFF >> 8), (IFLO_EPRG_OFF & 0xFF), 0x00, 0x00};
+uint8_t runExtProg1[]      = {0xFF, 0x00, 0xFF, 0xA5, 0x00, PUMP_ADDRESS, MY_ADDRESS, IFLO_CMD_REG,     0x04, (IFLO_REG_EPRG >> 8), (IFLO_REG_EPRG & 0xFF), (IFLO_EPRG_P1 >> 8), (IFLO_EPRG_P1 & 0xFF), 0x00, 0x00};
+uint8_t runExtProg2[]      = {0xFF, 0x00, 0xFF, 0xA5, 0x00, PUMP_ADDRESS, MY_ADDRESS, IFLO_CMD_REG,     0x04, (IFLO_REG_EPRG >> 8), (IFLO_REG_EPRG & 0xFF), (IFLO_EPRG_P2 >> 8), (IFLO_EPRG_P2 & 0xFF), 0x00, 0x00};
+uint8_t runExtProg3[]      = {0xFF, 0x00, 0xFF, 0xA5, 0x00, PUMP_ADDRESS, MY_ADDRESS, IFLO_CMD_REG,     0x04, (IFLO_REG_EPRG >> 8), (IFLO_REG_EPRG & 0xFF), (IFLO_EPRG_P3 >> 8), (IFLO_EPRG_P3 & 0xFF), 0x00, 0x00};
+uint8_t runExtProg4[]      = {0xFF, 0x00, 0xFF, 0xA5, 0x00, PUMP_ADDRESS, MY_ADDRESS, IFLO_CMD_REG,     0x04, (IFLO_REG_EPRG >> 8), (IFLO_REG_EPRG & 0xFF), (IFLO_EPRG_P4 >> 8), (IFLO_EPRG_P4 & 0xFF), 0x00, 0x00};
+uint8_t startPump[]        = {0xFF, 0x00, 0xFF, 0xA5, 0x00, PUMP_ADDRESS, MY_ADDRESS, IFLO_CMD_RUN,     0x01, IFLO_RUN_STRT,         0x00, 0x00};
+uint8_t stopPump[]         = {0xFF, 0x00, 0xFF, 0xA5, 0x00, PUMP_ADDRESS, MY_ADDRESS, IFLO_CMD_RUN,     0x01, IFLO_RUN_STOP,         0x00, 0x00}; ///????
 
 SoftwareSerial RS485Serial(SSerialRx, SSerialTx); // RX, TX
 
-#define MAX_INPUT_LEN   128
-uint8_t inputBuffer[MAX_INPUT_LEN];
-uint8_t* bPointer = 0;
+#define MAX_INPUT_LEN   16
+uint8_t cmdBuffer[MAX_INPUT_LEN];
+uint8_t *cmdPointer;
 boolean inputComplete = false;
+uint8_t lastCommand;
+uint16_t lastCmdValue;
 
 void setup() {
     Serial.begin(9600);
@@ -136,8 +138,8 @@ void setup() {
     // Start the software serial port, to another device
     RS485Serial.begin(9600);   // set the data rate
 
-    memset(inputBuffer, 0, sizeof(inputBuffer));
-    bPointer = inputBuffer; // Set the pointer to the beginning of the buffer
+    memset(cmdBuffer, 0, sizeof(cmdBuffer));
+    cmdPointer = cmdBuffer; // Set the pointer to the beginning of the buffer
 }
 
 void loop() {
@@ -152,26 +154,35 @@ void loop() {
             // Line ending indicates end of command
             if (iRcv == 0x0A || iRcv == 0x0D) {
                 inputComplete = true;
-            } else if (iRcv >= 0x30 && iRcv <= 0x39) {
-               *bPointer++ = (byte)(iRcv - 0x30);
-            } else if ((iRcv >= 0x41 && iRcv <= 0x46)) { // Upper case characters
-                *bPointer++ = (byte)(iRcv - 0x37);
-            } else if ((iRcv >= 0x61 && iRcv <= 0x66)) { // Lower case characters
-                *bPointer++ = (byte)(iRcv - 0x57);
+                break;
             } else {
-                // noop, invalid HEX character. Reset input
+                *cmdPointer++ = (char)iRcv;
             }
 
             // Reset the buffer
-            if ((bPointer - inputBuffer) > MAX_INPUT_LEN) {
+            if ((cmdPointer - cmdBuffer) > MAX_INPUT_LEN) { // Pointer arithmetic usually gives you the index, but we increment the pointer after every assignment, so we get now the length
                 resetInputBuffer();
             }
         }
     }
 
+    if (inputComplete == true) {
+        lastCommand = -1;
+        String cmd = String((char *)cmdBuffer);
+        cmd.toLowerCase();
+
+        if (cmd.compareTo("on") == 0) {
+            lastCommand = *startPump;
+        } else if (cmd.compareTo("off") == 0) {
+
+        } else if (cmd.compareTo("status") == 0) {
+
+        }
+    }
+
     // Now get the actual bytes from from the input
     if (inputComplete == true) {
-        int noHexChars = (bPointer - inputBuffer); // Pointer arithmetic usually gives you the index, but we incremented the index after every assignment, so we get now the length
+        int noHexChars = (bPointer - cmdBuffer);
 
         if ((noHexChars % 2) == 0) {
             // Send input to RS485
@@ -180,7 +191,7 @@ void loop() {
             // Now read two 'hex characters' at a time from the input buffer and convert them into the actual byte value
             byte actualData[noHexChars / 2];
             for (int i = 0, j = 0; i < noHexChars; i += 2, ++j) {
-                actualData[j] = inputBuffer[i + 1] + (inputBuffer[i] << 4);
+                actualData[j] = cmdBuffer[i + 1] + (cmdBuffer[i] << 4);
             }
 
             Serial.print("Sending data: ");
@@ -222,6 +233,6 @@ void loop() {
 
 void resetInputBuffer() {
     inputComplete = false;
-    memset(inputBuffer, 0, sizeof(inputBuffer));
-    bPointer = inputBuffer;
+    memset(cmdBuffer, 0, sizeof(cmdBuffer));
+    cmdPointer = cmdBuffer;
 }

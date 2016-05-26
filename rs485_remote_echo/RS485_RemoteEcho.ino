@@ -101,7 +101,7 @@ void loop() {
     }
 }
 
-boolean findPAMessage(uint8_t *data, int len, int *msgStartIdx, int *actualMsgLength) {
+boolean findPAMessage(uint8_t data[], int len, int *msgStartIdx, int *actualMsgLength) {
     *msgStartIdx = -1; // the starting index of a valid message, if any
     *actualMsgLength = 0;
 
