@@ -1,0 +1,91 @@
+<!--
+/* This program is free software. It comes without any warranty, to
+* the extent permitted by applicable law. You can redistribute it
+* and/or modify it under the terms of the Do What The Fuck You Want
+* To Public License, Version 2, as published by Sam Hocevar. See
+* http://www.wtfpl.net/ for more details.
+*/
+-->
+
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<title>RS485 Prototype</title>
+
+	<link rel="stylesheet" href="css/bootstrap-3.3.4.css"/>
+	<link rel="stylesheet" href="css/jquery-ui-1.11.4.css"/>
+	<link rel="stylesheet" href="css/jquery-ui.structure-1.11.4.css"/>
+
+	<link rel="stylesheet" href="css/rs485.css"/>
+
+	<script src="js/3rd-party-libs/jquery/jquery-2.1.4.js"></script>
+	<script src="js/3rd-party-libs/jquery/jquery-ui-1.11.4.js"></script>
+	<script src="js/3rd-party-libs/jquery/jquery.loading-indicator-3.3.1.js"></script>
+	<script src="js/3rd-party-libs/bootstrap/bootstrap-3.3.5.js"></script>
+
+	<script src="js/3rd-party-libs/jquery/jquery.simplemodal-1.4.4.js"></script>
+	<script src="js/3rd-party-libs/jquery/jquery.loading-indicator-3.3.1.js"></script>
+	<script src="js/3rd-party-libs/jquery/bootbox-4.4.0.js"></script>
+
+	<script src="js/3rd-party-libs/bluebird-3.0.5.js"></script>
+
+	<script src="js/common/weirdLowLevelStuff.js"></script>
+	<script src="js/common/chromeInterop.js"></script>
+	<script src="js/common/common.js"></script>
+
+	<script src="js/common/initializeApp.js"></script>
+</head>
+
+<body>
+<div class="container-fluid">
+	<div id="pnlError" class="row" style="display: none;">
+		<div class="col-xs-12">
+			<div id="pnlErrorMsgContainer" class="alert alert-danger fade in">
+				<button id="btnDismissDialog" data-dismiss="alert" class="close" type="button">X</button>
+			</div>
+		</div>
+	</div>
+
+	<div class="form-horizontal">
+		<div class="form-group">
+			<div class="col-xs-12">
+				<label for="lstConnectedDevices"
+					   class="control-label">Serial Ports:</label>
+				&nbsp;&nbsp;&nbsp;&nbsp;
+				<i id="btnRefreshDeviceList" class="glyphicon glyphicon-refresh" alt="Refresh Device List" style="cursor: pointer;"></i>
+				<select id="lstConnectedDevices" class="form-control" size="10">
+					<option value="none">No Device Found</option>
+				</select>
+			</div>
+		</div>
+		<div class="form-group">
+			<div class="col-xs-6">
+				<label class="control-label">Send Command:</label>
+				<input id="txtSerialCommand" placeholder="Enter Commmand" class="form-control">
+			</div>
+			<div class="col-xs-4">
+				<label for="ddlCommandPort" class="control-label">Target:</label>
+				<select id="ddlCommandPort" class="form-control">
+					<option value="none">No Device Found</option>
+				</select>
+			</div>
+
+			<div class="col-xs-2">
+				<label for="btnSendCommand" class="control-label">&nbsp;</label><br>
+				<button id="btnSendCommand" class="btn btn-default" disabled>Send</button>
+			</div>
+		</div>
+		<div class="form-group">
+			<div class="col-xs-12">
+				<button id="btnClearLog" class="btn btn-default">Clear log</button>
+			</div>
+		</div>
+	</div>
+</div>
+
+<div id="pnlLogContainer" style="overflow-y: scroll; width: 100%; height: calc(100% - 351px); padding: 15px;">
+
+</div>
+</body>
+</html>
