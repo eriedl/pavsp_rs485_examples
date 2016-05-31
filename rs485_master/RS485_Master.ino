@@ -143,14 +143,15 @@ enum COMMAND_STAGE curCmdStage;
 // The theoretical maximum is 264 bytes. however, it seems that actual message are much shorter, i.e. 37 bytes was
 // the longest seen so far. So, allocate 2x size of an expected message size: 2 x 32 bytes.
 //
-//#define MAX_PKG_LEN      6+256+2 //Msg Prefix + Data + Checksum
-#define MAX_PKG_LEN      6 + 32 + 2 // 40 bytes
-#define MIN_PKG_LEN      6 + 0 + 2 // 8 bytes
-#define RCV_BUF_SZ       (3 + MAX_PKG_LEN) * 2 // 86 bytes, includes preamble
+//#define MAX_PKG_LEN         6+256+2 //Msg Prefix + Data + Checksum
+#define MAX_PKG_LEN         6 + 32 + 2 // 40 bytes
+#define MIN_PKG_LEN         6 + 0 + 2 // 8 bytes
+#define RCV_BUF_SZ          (3 + MAX_PKG_LEN) * 2 // 86 bytes, includes preamble
 uint8_t msgBuffer[RCV_BUF_SZ];
 uint8_t *msgBufPtr;
-#define RESPONSE_TTL     250;
-uint8_t responseTTL = RESPONSE_TTL;
+#define RESPONSE_TTL        250
+uint8_t responseTTL         = RESPONSE_TTL;
+#define ISDEBUG             0
 
 void setup() {
     Serial.begin(9600);
@@ -167,18 +168,15 @@ void setup() {
     RS485Serial.begin(9600);   // set the data rate
 
     reset(); // Reset all variables to their default
+    digitalWrite(Pin13LED, LOW);   // turn LED off
 }
 
 void loop() {
-    digitalWrite(Pin13LED, LOW);   // turn LED on
-
     // Parse a command
     if (Serial.available()) {
         int iRcv = -1;
 
         while ((iRcv = Serial.read()) > -1) {
-            digitalWrite(Pin13LED, HIGH);
-
             // Line ending indicates end of command
             if (iRcv == 0x0A || iRcv == 0x0D) {
                 inputComplete = true;
@@ -194,11 +192,7 @@ void loop() {
 
                 break;
             }
-
-            digitalWrite(Pin13LED, LOW);
         }
-
-        digitalWrite(Pin13LED, LOW);
     }
 
     // 1. Send Remote Ctrl
@@ -207,12 +201,11 @@ void loop() {
     // 2.1 Process confirmation/response, i.e. status
     // 3. Send Local Ctrl
     // 3.1 Wait for confirmation
-//    Serial.println((inputCmdBufPtr - inputCmdBuffer));
     if (inputComplete == true) {
         String strCommand = String((char *) inputCmdBuffer);
         strCommand.toLowerCase();
         curCmdStage = CTRL_REMOTE;
-        Serial.println("Command is: " + strCommand);
+        if (ISDEBUG) Serial.println("Command is: " + strCommand);
 
         if (strCommand.compareTo("on") == 0) {
 
@@ -227,12 +220,10 @@ void loop() {
             reset();
         } else if (strCommand.compareTo("control remote") == 0) {
             Serial.println("Setting control remote");
-            *pumpCommand = 0;
             pumpCommandSz = 0;
             curCmdStage = CTRL_REMOTE;
         } else if (strCommand.compareTo("control local") == 0) {
             Serial.println("Setting control local");
-            *pumpCommand = 0;
             pumpCommandSz = 0;
             curCmdStage = CTRL_LOCAL;
         } else {
@@ -247,8 +238,6 @@ void loop() {
 
     // 1. Send Remote Ctrl
     if (curCmdStage == CTRL_REMOTE || curCmdStage == COMMAND || curCmdStage == CTRL_LOCAL) {
-        digitalWrite(Pin13LED, HIGH);
-
         // Compose the message
         uint16_t chkSum = 0;
         switch(curCmdStage) {
@@ -276,11 +265,9 @@ void loop() {
         }
 
         digitalWrite(SSerialTxControl, RS485Transmit);
-        digitalWrite(Pin13LED, LOW);
 
-        Serial.print("Sending data: ");
+        if (ISDEBUG) Serial.print("Sending data: ");
         for(int i = 0; i < lastCommandSz; ++i) {
-            digitalWrite(Pin13LED, HIGH);
             uint8_t b = lastCommand[i];
 
             //Calculate the checksum
@@ -292,27 +279,25 @@ void loop() {
                 b = (uint8_t)(chkSum & 0xFF);
             }
 
-            Serial.print(b < 0x10 ? "0" + String(b, HEX) : String(b, HEX));
+            if (ISDEBUG) Serial.print(b < 0x10 ? "0" + String(b, HEX) : String(b, HEX));
             RS485Serial.write(b);
-            digitalWrite(Pin13LED, LOW);
         }
-        Serial.println(", Checksum: " + String(chkSum));
+        if (ISDEBUG) Serial.println(", Checksum: " + String(chkSum));
 
         digitalWrite(SSerialTxControl, RS485Receive);
-        digitalWrite(Pin13LED, HIGH);
     }
 
     // Receive data from remote
     if ((curCmdStage == CONFIRM_REMOTE || curCmdStage == COMMAND_RESPONSE || curCmdStage == CONFIRM_LOCAL)) {
+
         if (RS485Serial.available() > 0) {
             int iRcv = -1;
 
-            Serial.print("Incoming data: ");
+            if (ISDEBUG) Serial.print("Incoming data: ");
             while ((iRcv = RS485Serial.read()) > -1) {
-                digitalWrite(Pin13LED, HIGH);
                 *msgBufPtr++ = (char)iRcv;
 
-                Serial.print(iRcv < 0x10 ? "0" + String(iRcv, HEX) : String(iRcv, HEX));
+                if (ISDEBUG) Serial.print(iRcv < 0x10 ? "0" + String(iRcv, HEX) : String(iRcv, HEX));
 
                 // Reset the buffer, if we overflow. That should not happen
                 if ((msgBufPtr - msgBuffer) > RCV_BUF_SZ) {
@@ -321,21 +306,18 @@ void loop() {
 
                     return;
                 }
-                digitalWrite(Pin13LED, LOW);
             }
-            Serial.println();
-
-            digitalWrite(Pin13LED, HIGH);
+            if (ISDEBUG) Serial.println();
 
             // Now check if we got a useful message
             int bufLen = (msgBufPtr - msgBuffer);
-            Serial.println("len: " + String(bufLen) + ", min len: " + String((PREAMBLE_LEN - 1 + MIN_PKG_LEN)));
+            if (ISDEBUG) Serial.println("len: " + String(bufLen) + ", min len: " + String((PREAMBLE_LEN - 1 + MIN_PKG_LEN)));
             if (bufLen >= (PREAMBLE_LEN - 1 + MIN_PKG_LEN)) {
                 int msgStartIdx = -1;
                 int msgLength = -1;
                 // FIXME: Handle multiple consecutive messages in buffer. Ideally make this a loop until no message
                 boolean msgFound = findPAMessage(msgBuffer, bufLen, &msgStartIdx, &msgLength);
-                Serial.println("Message found: " + String(msgFound));
+                if (ISDEBUG) Serial.println("Message found: " + String(msgFound));
 
                 if (msgFound == true) {
                     uint8_t *relMsgPtr = &msgBuffer[msgStartIdx];
@@ -364,19 +346,19 @@ void loop() {
                     // Response should also contain the last command value, unless it was a status request
                     uint8_t dataLen = relMsgPtr[MSG_LEN_IDX];
                     if (lastCommand[MSG_CFI_IDX] == IFLO_CMD_STAT && dataLen == 15) {
-                        Serial.println("Got status response: ");
-                        Serial.println("RUN: " + String(relMsgPtr[STAT_RUN_IDX]));
-                        Serial.println("MOD: " + String(relMsgPtr[STAT_MODE_IDX]));
-                        Serial.println("PMP: " + String(relMsgPtr[STAT_STATE_IDX]));
-                        Serial.println("PWR: " + String((relMsgPtr[STAT_PWR_HB_IDX] * 256) + relMsgPtr[STAT_PWR_LB_IDX]) + " WATT");
-                        Serial.println("RPM: " + String((relMsgPtr[STAT_RPM_HB_IDX] * 256) + relMsgPtr[STAT_RPM_LB_IDX]) + " RPM");
-                        Serial.println("GPM: " + String(relMsgPtr[STAT_GPM_IDX]) + " GPM");
-                        Serial.println("PPC: " + String(relMsgPtr[STAT_PPC_IDX]) + " %");
-                        Serial.println("B09: " + String(relMsgPtr[STAT_B09_IDX]));
-                        Serial.println("ERR: " + String(relMsgPtr[STAT_ERR_IDX]));
-                        Serial.println("B11: " + String(relMsgPtr[STAT_B11_IDX]));
-                        Serial.println("TMR: " + String(relMsgPtr[STAT_TIMER_IDX]) + " MIN");
-                        Serial.println("CLK: " + String(relMsgPtr[STAT_CLK_HOUR_IDX]) + ":" + String(relMsgPtr[STAT_CLK_MIN_IDX]));
+                        Serial.println("Pump status: ");
+                        Serial.println("\tRUN: " + String(relMsgPtr[STAT_RUN_IDX]));
+                        Serial.println("\tMOD: " + String(relMsgPtr[STAT_MODE_IDX]));
+                        Serial.println("\tPMP: " + String(relMsgPtr[STAT_STATE_IDX]));
+                        Serial.println("\tPWR: " + String((relMsgPtr[STAT_PWR_HB_IDX] * 256) + relMsgPtr[STAT_PWR_LB_IDX]) + " WATT");
+                        Serial.println("\tRPM: " + String((relMsgPtr[STAT_RPM_HB_IDX] * 256) + relMsgPtr[STAT_RPM_LB_IDX]) + " RPM");
+                        Serial.println("\tGPM: " + String(relMsgPtr[STAT_GPM_IDX]) + " GPM");
+                        Serial.println("\tPPC: " + String(relMsgPtr[STAT_PPC_IDX]) + " %");
+                        Serial.println("\tB09: " + String(relMsgPtr[STAT_B09_IDX]));
+                        Serial.println("\tERR: " + String(relMsgPtr[STAT_ERR_IDX]));
+                        Serial.println("\tB11: " + String(relMsgPtr[STAT_B11_IDX]));
+                        Serial.println("\tTMR: " + String(relMsgPtr[STAT_TIMER_IDX]) + " MIN");
+                        Serial.println("\tCLK: " + String(relMsgPtr[STAT_CLK_HOUR_IDX]) + ":" + (relMsgPtr[STAT_CLK_MIN_IDX] < 0x0A ? "0" + String(relMsgPtr[STAT_CLK_MIN_IDX]) : relMsgPtr[STAT_CLK_MIN_IDX]));
                     } else {
                         for (int i = MSG_LEN_IDX + 1; i < dataLen; ++i) {
                             uint8_t lCmdVal = 0x00;
@@ -402,10 +384,10 @@ void loop() {
                         }
                     }
 
-                    Serial.println("Last command confirmed");
+                    if (ISDEBUG) Serial.println("Last command confirmed");
 
                     if (pumpCommandSz == 0) {
-                        Serial.println("Control has been set to remote");
+                        Serial.println("Control mode has been reset");
                         reset();
 
                         return;
@@ -431,27 +413,28 @@ void loop() {
                     memset(msgBuffer, 0, sizeof(msgBuffer));
                     msgBufPtr = msgBuffer;
                     responseTTL = RESPONSE_TTL;
-                } else {
-                    // We found the start of a message but either the message was incomplete or the checksum failed. Reset everything;
-                    if (msgStartIdx > -1 || msgLength == 0) {
-                        if (responseTTL > 0) {
-                            Serial.println("Partial message received. Waiting for completion...");
-                        } else {
-                            Serial.println("Partial message received. Did not receive missing parts, resetting...");
-                            reset();
-                        }
-                    }
                 }
+//                else {
+//                    // We found the start of a message but either the message was incomplete or the checksum failed. Reset everything;
+//                    if (msgStartIdx > -1 || msgLength == 0) {
+//                        if (responseTTL > 0) {
+//                            Serial.println("Partial message received. Waiting for completion...");
+//                        } else {
+//                            Serial.println("Partial message received. Did not receive missing parts, resetting...");
+//                            reset();
+//                        }
+//                    }
+//                }
             }
         } else {
-            // Waiting for message completion
-            if (responseTTL > 0) {
-                --responseTTL;
-                Serial.println("TTL: " + String(responseTTL));
-            } else {
-                Serial.println("Partial message received. Did not receive missing parts, resetting...");
-                reset();
-            }
+//            // Waiting for message completion
+//            if (responseTTL > 0) {
+//                --responseTTL;
+//                Serial.println("TTL: " + String(responseTTL));
+//            } else {
+//                Serial.println("Partial message received. Did not receive missing parts, resetting...");
+//                reset();
+//            }
         }
     }
 }
@@ -459,7 +442,6 @@ void loop() {
 void reset() {
     memset(inputCmdBuffer, 0, sizeof(inputCmdBuffer));
     inputCmdBufPtr = inputCmdBuffer;
-    inputComplete = false;
     inputComplete = false;
     memset(msgBuffer, 0, sizeof(msgBuffer));
     msgBufPtr = msgBuffer;
@@ -483,7 +465,8 @@ boolean findPAMessage(uint8_t data[], int len, int *msgStartIdx, int *actualMsgL
             break;
         }
     }
-Serial.println("msgStartIdx: " + String(*msgStartIdx));
+
+    if (ISDEBUG) Serial.println("msgStartIdx: " + String(*msgStartIdx));
     // Check if the found start index + minimum package length is within total length of message
     if (*msgStartIdx == -1 || (*msgStartIdx + MIN_PKG_LEN) > len) {
         return false;
@@ -491,13 +474,14 @@ Serial.println("msgStartIdx: " + String(*msgStartIdx));
 
     // Get the actual data length. It's the eigth byte in the message including preamble (or 5th starting at MSG_BGN_IDX
     int dataLength = data[*msgStartIdx + (MSG_LEN_IDX - MSG_BGN_IDX)];
-Serial.println("dataLength: " + String(dataLength));
+    if (ISDEBUG) Serial.println("dataLength: " + String(dataLength));
     // Check again if total message length is within the boundaries given the data length
     *actualMsgLength = (MSG_LEN_IDX - MSG_BGN_IDX) + 1 + dataLength + 2; // Index + 1, actual data length, check sum length
     if (*msgStartIdx + *actualMsgLength > len) {
         return false;
     }
-Serial.println("actualMsgLength: " + String(*actualMsgLength));
+
+    if (ISDEBUG) Serial.println("actualMsgLength: " + String(*actualMsgLength));
     // Calculate the checksum
     int chkSum = 0;
     int expChkSum = (data[*msgStartIdx + *actualMsgLength - 2] * 256) + data[*msgStartIdx + *actualMsgLength - 1];
@@ -507,22 +491,22 @@ Serial.println("actualMsgLength: " + String(*actualMsgLength));
 
     // Add the leading garbage again to the message
     *msgStartIdx -= (PREAMBLE_LEN - 1);
-    Serial.println("msgStartIdx: " + String(*msgStartIdx));
     *actualMsgLength += (PREAMBLE_LEN - 1);
-   Serial.println("actualMsgLength: " + String(*actualMsgLength));
 
-    Serial.println("Calc checksum: " + String(chkSum));
-    Serial.println("High byte: " + String(data[*msgStartIdx + *actualMsgLength - 2]));
-    Serial.println("Low byte: " + String(data[*msgStartIdx + *actualMsgLength - 1]));
-    Serial.println("Exp checksum: " + String(expChkSum));
+    if (ISDEBUG) Serial.println("msgStartIdx: " + String(*msgStartIdx));
+    if (ISDEBUG) Serial.println("actualMsgLength: " + String(*actualMsgLength));
+    if (ISDEBUG) Serial.println("Calc checksum: " + String(chkSum));
+    if (ISDEBUG) Serial.println("High byte: " + String(data[*msgStartIdx + *actualMsgLength - 2]));
+    if (ISDEBUG) Serial.println("Low byte: " + String(data[*msgStartIdx + *actualMsgLength - 1]));
+    if (ISDEBUG) Serial.println("Exp checksum: " + String(expChkSum));
 
     // Verify the checksum
     if (chkSum != expChkSum) {
-        Serial.println("Checksum is: BAD");
+        if (ISDEBUG) Serial.println("Checksum is: BAD");
 
         return false;
     }
 
-    Serial.println("Checksum is: GOOD");
+    if (ISDEBUG) Serial.println("Checksum is: GOOD");
     return true;
 }
