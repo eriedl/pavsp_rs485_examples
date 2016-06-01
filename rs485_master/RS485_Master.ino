@@ -1,3 +1,10 @@
+/* This program is free software. It comes without any warranty, to
+ * the extent permitted by applicable law. You can redistribute it
+ * and/or modify it under the terms of the Do What The Fuck You Want
+ * To Public License, Version 2, as published by Sam Hocevar. See
+ * http://www.wtfpl.net/ for more details.
+ */
+
 #include <Arduino.h>
 #include <SoftwareSerial.h>
 
@@ -23,7 +30,7 @@
    Let's use 0x20, the first address in the remote controller space
  */
 #define PUMP_ADDRESS        0x60
-#define MY_ADDRESS          0x20
+#define MY_ADDRESS          0x11
 #define BROADCAST_ADDRESS   0x0F
 
 // Pump programming commands, this command writes instructions to a memory register. I.e. preset up to 4 programs to run
@@ -79,48 +86,79 @@
 #define PREAMBLE_LEN        0x04
 const uint8_t PREAMBLE[] = { 0xFF, 0x00, 0xFF, 0xA5 };
 
+// Pump message indexes
+#define MSG_BGN_IDX         0x03
 #define MSG_VER_IDX         0x04
 #define MSG_DST_IDX         0x05
 #define MSG_SRC_IDX         0x06
 #define MSG_CFI_IDX         0x07
 #define MSG_LEN_IDX         0x08
 
-// Pump status structure indexes
-#define STAT_RUN_IDX        0x00
-#define STAT_MODE_IDX       0x01
-#define STAT_STATE_IDX      0x02
-#define STAT_PWR_HB_IDX     0x03
-#define STAT_PWR_LB_IDX     0x04
-#define STAT_RPM_HB_IDX     0x05
-#define STAT_RPM_LB_IDX     0x06
-#define STAT_GPM_IDX        0x07
-#define STAT_PPC_IDX        0x08 // Chlor level?
-#define STAT_B09_IDX        0x09 // What's this?
-#define STAT_ERR_IDX        0x10 // Whatever the error codes are. 0x00 is OK
-#define STAT_B11_IDX        0x11 // What's this?
-#define STAT_TIMER_IDX      0x12 // TIMER in minutes
-#define STAT_CLK_HOUR_IDX   0x13
-#define STAT_CLK_MIN_IDX    0x14
-/* EOF - Pump message structure related stuff like indexes, constants, etc. */
+// Pump status data indexes
+#define STAT_RUN_IDX        0x09
+#define STAT_MODE_IDX       0x0A
+#define STAT_STATE_IDX      0x0B
+#define STAT_PWR_HB_IDX     0x0C
+#define STAT_PWR_LB_IDX     0x0D
+#define STAT_RPM_HB_IDX     0x0E
+#define STAT_RPM_LB_IDX     0x0F
+#define STAT_GPM_IDX        0x10
+#define STAT_PPC_IDX        0x11 // Chlor level?
+#define STAT_B09_IDX        0x12 // What's this?
+#define STAT_ERR_IDX        0x13 // Whatever the error codes are. 0x00 is OK
+#define STAT_B11_IDX        0x14 // What's this?
+#define STAT_TIMER_IDX      0x15 // TIMER in minutes
+#define STAT_CLK_HOUR_IDX   0x16
+#define STAT_CLK_MIN_IDX    0x17
 
-//                             P R E A M B L E     VER   DST           SRC         CFI               LEN   DAT                    CHB   CLB (Check Sum is set when sending command, depends on addresses used)
-byte setCtrlRemote[]    = {0xFF, 0x00, 0xFF, 0xA5, 0x00, PUMP_ADDRESS, MY_ADDRESS, IFLO_CMD_CTRL,    0x01, IFLO_CTRL_REMOTE,      0x00, 0x00};
-byte setCtrlLocal[]     = {0xFF, 0x00, 0xFF, 0xA5, 0x00, PUMP_ADDRESS, MY_ADDRESS, IFLO_CMD_CTRL,    0x01, IFLO_CTRL_LOCAL,       0x00, 0x00};
-byte getStatus[]        = {0xFF, 0x00, 0xFF, 0xA5, 0x00, PUMP_ADDRESS, MY_ADDRESS, IFLO_CMD_STAT,    0x00,                        0x00, 0x00};
-byte extProgOff[]       = {0xFF, 0x00, 0xFF, 0xA5, 0x00, PUMP_ADDRESS, MY_ADDRESS, IFLO_CMD_REG,     0x04, (IFLO_REG_EPRG >> 8), (IFLO_REG_EPRG & 0xFF), (IFLO_EPRG_OFF >> 8), (IFLO_EPRG_OFF & 0xFF), 0x00, 0x00};
-byte runExtProg1[]      = {0xFF, 0x00, 0xFF, 0xA5, 0x00, PUMP_ADDRESS, MY_ADDRESS, IFLO_CMD_REG,     0x04, (IFLO_REG_EPRG >> 8), (IFLO_REG_EPRG & 0xFF), (IFLO_EPRG_P1 >> 8), (IFLO_EPRG_P1 & 0xFF), 0x00, 0x00};
-byte runExtProg2[]      = {0xFF, 0x00, 0xFF, 0xA5, 0x00, PUMP_ADDRESS, MY_ADDRESS, IFLO_CMD_REG,     0x04, (IFLO_REG_EPRG >> 8), (IFLO_REG_EPRG & 0xFF), (IFLO_EPRG_P2 >> 8), (IFLO_EPRG_P2 & 0xFF), 0x00, 0x00};
-byte runExtProg3[]      = {0xFF, 0x00, 0xFF, 0xA5, 0x00, PUMP_ADDRESS, MY_ADDRESS, IFLO_CMD_REG,     0x04, (IFLO_REG_EPRG >> 8), (IFLO_REG_EPRG & 0xFF), (IFLO_EPRG_P3 >> 8), (IFLO_EPRG_P3 & 0xFF), 0x00, 0x00};
-byte runExtProg4[]      = {0xFF, 0x00, 0xFF, 0xA5, 0x00, PUMP_ADDRESS, MY_ADDRESS, IFLO_CMD_REG,     0x04, (IFLO_REG_EPRG >> 8), (IFLO_REG_EPRG & 0xFF), (IFLO_EPRG_P4 >> 8), (IFLO_EPRG_P4 & 0xFF), 0x00, 0x00};
-byte startPump[]        = {0xFF, 0x00, 0xFF, 0xA5, 0x00, PUMP_ADDRESS, MY_ADDRESS, IFLO_CMD_RUN,     0x01, IFLO_RUN_STRT,         0x00, 0x00};
-byte stopPump[]         = {0xFF, 0x00, 0xFF, 0xA5, 0x00, PUMP_ADDRESS, MY_ADDRESS, IFLO_CMD_RUN,     0x01, IFLO_RUN_STOP,         0x00, 0x00}; ///????
+//                               P R E A M B L E      VER   DST           SRC         CFI               LEN   DAT                    CHB   CLB (Check Sum is set when sending command, depends on addresses used)
+uint8_t setCtrlRemote[]    = {0xFF, 0x00, 0xFF, 0xA5, 0x00, PUMP_ADDRESS, MY_ADDRESS, IFLO_CMD_CTRL,    0x01, IFLO_CTRL_REMOTE,      0x00, 0x00};
+uint8_t setCtrlLocal[]     = {0xFF, 0x00, 0xFF, 0xA5, 0x00, PUMP_ADDRESS, MY_ADDRESS, IFLO_CMD_CTRL,    0x01, IFLO_CTRL_LOCAL,       0x00, 0x00};
+uint8_t getStatus[]        = {0xFF, 0x00, 0xFF, 0xA5, 0x00, PUMP_ADDRESS, MY_ADDRESS, IFLO_CMD_STAT,    0x00,                        0x00, 0x00};
+uint8_t extProgOff[]       = {0xFF, 0x00, 0xFF, 0xA5, 0x00, PUMP_ADDRESS, MY_ADDRESS, IFLO_CMD_REG,     0x04, (IFLO_REG_EPRG >> 8), (IFLO_REG_EPRG & 0xFF), (IFLO_EPRG_OFF >> 8), (IFLO_EPRG_OFF & 0xFF), 0x00, 0x00};
+uint8_t runExtProg1[]      = {0xFF, 0x00, 0xFF, 0xA5, 0x00, PUMP_ADDRESS, MY_ADDRESS, IFLO_CMD_REG,     0x04, (IFLO_REG_EPRG >> 8), (IFLO_REG_EPRG & 0xFF), (IFLO_EPRG_P1 >> 8), (IFLO_EPRG_P1 & 0xFF), 0x00, 0x00};
+uint8_t runExtProg2[]      = {0xFF, 0x00, 0xFF, 0xA5, 0x00, PUMP_ADDRESS, MY_ADDRESS, IFLO_CMD_REG,     0x04, (IFLO_REG_EPRG >> 8), (IFLO_REG_EPRG & 0xFF), (IFLO_EPRG_P2 >> 8), (IFLO_EPRG_P2 & 0xFF), 0x00, 0x00};
+uint8_t runExtProg3[]      = {0xFF, 0x00, 0xFF, 0xA5, 0x00, PUMP_ADDRESS, MY_ADDRESS, IFLO_CMD_REG,     0x04, (IFLO_REG_EPRG >> 8), (IFLO_REG_EPRG & 0xFF), (IFLO_EPRG_P3 >> 8), (IFLO_EPRG_P3 & 0xFF), 0x00, 0x00};
+uint8_t runExtProg4[]      = {0xFF, 0x00, 0xFF, 0xA5, 0x00, PUMP_ADDRESS, MY_ADDRESS, IFLO_CMD_REG,     0x04, (IFLO_REG_EPRG >> 8), (IFLO_REG_EPRG & 0xFF), (IFLO_EPRG_P4 >> 8), (IFLO_EPRG_P4 & 0xFF), 0x00, 0x00};
+uint8_t startPump[]        = {0xFF, 0x00, 0xFF, 0xA5, 0x00, PUMP_ADDRESS, MY_ADDRESS, IFLO_CMD_RUN,     0x01, IFLO_RUN_STRT,         0x00, 0x00};
+uint8_t stopPump[]         = {0xFF, 0x00, 0xFF, 0xA5, 0x00, PUMP_ADDRESS, MY_ADDRESS, IFLO_CMD_RUN,     0x01, IFLO_RUN_STOP,         0x00, 0x00};
+/* EOF - Pump message structure related stuff like indexes, constants, etc. */
 
 SoftwareSerial RS485Serial(SSerialRx, SSerialTx); // RX, TX
 
-#define MAX_INPUT_LEN   128
-uint8_t inputBuffer[MAX_INPUT_LEN];
-uint8_t* bPointer = 0;
+/* Command input */
+#define MAX_INPUT_LEN   16
+uint8_t inputCmdBuffer[MAX_INPUT_LEN];
+uint8_t *inputCmdBufPtr;
 boolean inputComplete = false;
+uint8_t *pumpCommand;
+size_t pumpCommandSz;
+uint8_t *lastCommand;
+size_t lastCommandSz;
+enum COMMAND_STAGE {
+    IDLE,
+    CTRL_REMOTE,
+    CONFIRM_REMOTE,
+    COMMAND,
+    COMMAND_RESPONSE,
+    CTRL_LOCAL,
+    CONFIRM_LOCAL
+};
+enum COMMAND_STAGE curCmdStage;
+
+/* RS485 message processing */
+// The theoretical maximum is 264 bytes. however, it seems that actual message are much shorter, i.e. 37 bytes was
+// the longest seen so far. So, allocate 2x size of an expected message size: 2 x 32 bytes.
+//
+//#define MAX_PKG_LEN         6+256+2 //Msg Prefix + Data + Checksum
+#define MAX_PKG_LEN         6 + 32 + 2 // 40 bytes
+#define MIN_PKG_LEN         6 + 0 + 2 // 8 bytes
+#define RCV_BUF_SZ          (3 + MAX_PKG_LEN) * 2 // 86 bytes, includes preamble
+uint8_t msgBuffer[RCV_BUF_SZ];
+uint8_t *msgBufPtr;
+#define RESPONSE_TTL        250
+uint8_t responseTTL         = RESPONSE_TTL;
+#define ISDEBUG             0
 
 void setup() {
     Serial.begin(9600);
@@ -136,15 +174,12 @@ void setup() {
     // Start the software serial port, to another device
     RS485Serial.begin(9600);   // set the data rate
 
-    memset(inputBuffer, 0, sizeof(inputBuffer));
-    bPointer = inputBuffer; // Set the pointer to the beginning of the buffer
+    reset(); // Reset all variables to their default
+    digitalWrite(Pin13LED, LOW);   // turn LED off
 }
 
 void loop() {
-    digitalWrite(Pin13LED, LOW);   // turn LED on
-
-    // Convert the input into a byte sequence. Each received byte is actually a character of a hex string
-    // i.e. HEX '0A' is represented by the bytes 0x00 and 0x41. So we need to convert 0x00 and 0x41 to the hex string 0x0A
+    // Parse a command
     if (Serial.available()) {
         int iRcv = -1;
 
@@ -152,76 +187,333 @@ void loop() {
             // Line ending indicates end of command
             if (iRcv == 0x0A || iRcv == 0x0D) {
                 inputComplete = true;
-            } else if (iRcv >= 0x30 && iRcv <= 0x39) {
-               *bPointer++ = (byte)(iRcv - 0x30);
-            } else if ((iRcv >= 0x41 && iRcv <= 0x46)) { // Upper case characters
-                *bPointer++ = (byte)(iRcv - 0x37);
-            } else if ((iRcv >= 0x61 && iRcv <= 0x66)) { // Lower case characters
-                *bPointer++ = (byte)(iRcv - 0x57);
+                break;
             } else {
-                // noop, invalid HEX character. Reset input
+                *inputCmdBufPtr++ = (char)iRcv;
             }
 
             // Reset the buffer
-            if ((bPointer - inputBuffer) > MAX_INPUT_LEN) {
-                resetInputBuffer();
+            if ((inputCmdBufPtr - inputCmdBuffer) > MAX_INPUT_LEN) { // Pointer arithmetic usually gives you the index, but we increment the pointer after every assignment, so we get now the length
+                memset(inputCmdBuffer, 0, sizeof(inputCmdBuffer));
+                inputCmdBufPtr = inputCmdBuffer;
+
+                break;
             }
         }
     }
 
-    // Now get the actual bytes from from the input
+    // 1. Send Remote Ctrl
+    // 1.1 Wait for confirmation
+    // 2. Send Command
+    // 2.1 Process confirmation/response, i.e. status
+    // 3. Send Local Ctrl
+    // 3.1 Wait for confirmation
     if (inputComplete == true) {
-        int noHexChars = (bPointer - inputBuffer); // Pointer arithmetic usually gives you the index, but we incremented the index after every assignment, so we get now the length
+        String strCommand = String((char *) inputCmdBuffer);
+        strCommand.toLowerCase();
+        curCmdStage = CTRL_REMOTE;
+        if (ISDEBUG) Serial.println("Command is: " + strCommand);
 
-        if ((noHexChars % 2) == 0) {
-            // Send input to RS485
-            digitalWrite(SSerialTxControl, RS485Transmit);
+        if (strCommand.compareTo("on") == 0) {
 
-            // Now read two 'hex characters' at a time from the input buffer and convert them into the actual byte value
-            byte actualData[noHexChars / 2];
-            for (int i = 0, j = 0; i < noHexChars; i += 2, ++j) {
-                actualData[j] = inputBuffer[i + 1] + (inputBuffer[i] << 4);
-            }
+        } else if (strCommand.compareTo("off") == 0) {
 
-            Serial.print("Sending data: ");
-            for (int i = 0; i < (noHexChars / 2); ++i) {
-                byte b = actualData[i];
-                Serial.print(b < 0x10 ? "0" + String(b, HEX) : String(b, HEX));
-
-            }
-            Serial.println();
-
-            RS485Serial.write(actualData, (sizeof(actualData) / sizeof(byte)));
-
-            // Put RS485 back into listening mode
-            digitalWrite(SSerialTxControl, RS485Receive);
-            digitalWrite(Pin13LED, HIGH);
+        } else if (strCommand.compareTo("status") == 0) {
+            Serial.println("Querying pump status");
+            pumpCommand = getStatus;
+            pumpCommandSz = sizeof(getStatus);
+        } else if (strCommand.compareTo("reset") == 0) {
+            Serial.println("Resetting system");
+            reset();
+        } else if (strCommand.compareTo("control remote") == 0) {
+            Serial.println("Setting control remote");
+            pumpCommandSz = 0;
+            curCmdStage = CTRL_REMOTE;
+        } else if (strCommand.compareTo("control local") == 0) {
+            Serial.println("Setting control local");
+            pumpCommandSz = 0;
+            curCmdStage = CTRL_LOCAL;
         } else {
-            Serial.println("Invalid input received");
+            Serial.print("What? Resetting....");
+            reset();
         }
 
-        // Reset the input buffer
-        resetInputBuffer();
+        inputComplete = false;
+        memset(inputCmdBuffer, 0, sizeof(inputCmdBuffer));
+        inputCmdBufPtr = inputCmdBuffer;
     }
 
-    // Now the actual work... Look for data from RS485 and echo it to the serial port
-    if (RS485Serial.available() > 0) {
-        Serial.print("Receiving data: ");
-        int iRcv = -1;
-        while ((iRcv = RS485Serial.read()) > -1) {
-            digitalWrite(Pin13LED, HIGH);
-            byte b = (byte)iRcv;
-            Serial.print(b < 0x10 ? "0" + String(b, HEX) : String(b, HEX));
-            digitalWrite(Pin13LED, LOW);
+    // 1. Send Remote Ctrl
+    if (curCmdStage == CTRL_REMOTE || curCmdStage == COMMAND || curCmdStage == CTRL_LOCAL) {
+        // Compose the message
+        uint16_t chkSum = 0;
+        switch(curCmdStage) {
+            case CTRL_REMOTE:
+                Serial.println("Setting command stage to CONFIRM_REMOTE");
+                lastCommandSz = sizeof(setCtrlRemote);
+                lastCommand = setCtrlRemote;
+                curCmdStage = CONFIRM_REMOTE;
+                break;
+            case COMMAND:
+                Serial.println("Setting command stage to COMMAND_RESPONSE");
+                lastCommandSz = pumpCommandSz;
+                lastCommand = pumpCommand;
+                curCmdStage = COMMAND_RESPONSE;
+                break;
+            case CTRL_LOCAL:
+                Serial.println("Setting command stage to CONFIRM_LOCAL");
+                lastCommandSz = sizeof(setCtrlLocal);
+                lastCommand = setCtrlLocal;
+                curCmdStage = CONFIRM_LOCAL;
+                break;
+            default:
+                reset();
+                return;
         }
-        Serial.println();
 
-        digitalWrite(Pin13LED, HIGH);
+        digitalWrite(SSerialTxControl, RS485Transmit);
+
+        if (ISDEBUG) Serial.print("Sending data: ");
+        for(int i = 0; i < lastCommandSz; ++i) {
+            uint8_t b = lastCommand[i];
+
+            //Calculate the checksum
+            if (i >= MSG_BGN_IDX && i < (lastCommandSz - 2)) {
+                chkSum += b;
+            } else if (i == (lastCommandSz - 2)) {
+                b = (uint8_t)(chkSum >> 8);
+            } else if (i == (lastCommandSz - 1)) {
+                b = (uint8_t)(chkSum & 0xFF);
+            }
+
+            if (ISDEBUG) Serial.print(b < 0x10 ? "0" + String(b, HEX) : String(b, HEX));
+            RS485Serial.write(b);
+        }
+        if (ISDEBUG) Serial.println(", Checksum: " + String(chkSum));
+
+        digitalWrite(SSerialTxControl, RS485Receive);
+    }
+
+    // Receive data from remote
+    if ((curCmdStage == CONFIRM_REMOTE || curCmdStage == COMMAND_RESPONSE || curCmdStage == CONFIRM_LOCAL)) {
+
+        if (RS485Serial.available() > 0) {
+            int iRcv = -1;
+
+            if (ISDEBUG) Serial.print("Incoming data: ");
+            while ((iRcv = RS485Serial.read()) > -1) {
+                *msgBufPtr++ = (char)iRcv;
+
+                if (ISDEBUG) Serial.print(iRcv < 0x10 ? "0" + String(iRcv, HEX) : String(iRcv, HEX));
+
+                // Reset the buffer, if we overflow. That should not happen
+                if ((msgBufPtr - msgBuffer) > RCV_BUF_SZ) {
+                    Serial.println("Buffer overflow. Resetting system...");
+                    reset();
+
+                    return;
+                }
+            }
+            if (ISDEBUG) Serial.println();
+
+            // Now check if we got a useful message
+            int bufLen = (msgBufPtr - msgBuffer);
+            if (ISDEBUG) Serial.println("len: " + String(bufLen) + ", min len: " + String((PREAMBLE_LEN - 1 + MIN_PKG_LEN)));
+            if (bufLen >= (PREAMBLE_LEN - 1 + MIN_PKG_LEN)) {
+                int msgStartIdx = -1;
+                int msgLength = -1;
+                // FIXME: Handle multiple consecutive messages in buffer. Ideally make this a loop until no message
+                boolean msgFound = findPAMessage(msgBuffer, bufLen, &msgStartIdx, &msgLength);
+                if (ISDEBUG) Serial.println("Message found: " + String(msgFound));
+
+                if (msgFound == true) {
+                    uint8_t *relMsgPtr = &msgBuffer[msgStartIdx];
+                    // Reset the buffer and bail if the message was not for us
+                    if (relMsgPtr[MSG_DST_IDX] != MY_ADDRESS || relMsgPtr[MSG_SRC_IDX] != PUMP_ADDRESS) {
+                        Serial.println("Message not for us:"
+                                               " SRC: " + String(relMsgPtr[MSG_DST_IDX], HEX) +
+                                               " DST: " + String(relMsgPtr[MSG_SRC_IDX], HEX));
+                        memset(msgBuffer, 0, sizeof(msgBuffer));
+                        msgBufPtr = msgBuffer;
+                        responseTTL = RESPONSE_TTL;
+
+                        return;
+                    }
+
+                    // Response is not for our last command
+                    if (relMsgPtr[MSG_CFI_IDX] != lastCommand[MSG_CFI_IDX]) {
+                        Serial.println("Message is not a confirmation of our last command:"
+                                               " SENT: " + String(lastCommand[MSG_CFI_IDX], HEX) +
+                                               " RCVD: " + String(relMsgPtr[MSG_CFI_IDX], HEX));
+                        reset();
+
+                        return;
+                    }
+
+                    // Response should also contain the last command value, unless it was a status request
+                    uint8_t dataLen = relMsgPtr[MSG_LEN_IDX];
+                    if (lastCommand[MSG_CFI_IDX] == IFLO_CMD_STAT && dataLen == 15) {
+                        Serial.println("Pump status: ");
+                        Serial.println("\tRUN: " + String(relMsgPtr[STAT_RUN_IDX]));
+                        Serial.println("\tMOD: " + String(relMsgPtr[STAT_MODE_IDX]));
+                        Serial.println("\tPMP: " + String(relMsgPtr[STAT_STATE_IDX]));
+                        Serial.println("\tPWR: " + String((relMsgPtr[STAT_PWR_HB_IDX] * 256) + relMsgPtr[STAT_PWR_LB_IDX]) + " WATT");
+                        Serial.println("\tRPM: " + String((relMsgPtr[STAT_RPM_HB_IDX] * 256) + relMsgPtr[STAT_RPM_LB_IDX]) + " RPM");
+                        Serial.println("\tGPM: " + String(relMsgPtr[STAT_GPM_IDX]) + " GPM");
+                        Serial.println("\tPPC: " + String(relMsgPtr[STAT_PPC_IDX]) + " %");
+                        Serial.println("\tB09: " + String(relMsgPtr[STAT_B09_IDX]));
+                        Serial.println("\tERR: " + String(relMsgPtr[STAT_ERR_IDX]));
+                        Serial.println("\tB11: " + String(relMsgPtr[STAT_B11_IDX]));
+                        Serial.println("\tTMR: " + String(relMsgPtr[STAT_TIMER_IDX]) + " MIN");
+                        Serial.println("\tCLK: " + String(relMsgPtr[STAT_CLK_HOUR_IDX]) + ":" + (relMsgPtr[STAT_CLK_MIN_IDX] < 0x0A ? "0" + String(relMsgPtr[STAT_CLK_MIN_IDX]) : relMsgPtr[STAT_CLK_MIN_IDX]));
+                    } else {
+                        for (int i = MSG_LEN_IDX + 1; i < dataLen; ++i) {
+                            uint8_t lCmdVal = 0x00;
+
+                            // Register writes echo only the value!
+                            if (lastCommand[MSG_CFI_IDX] == IFLO_CMD_REG) {
+                                lCmdVal = lastCommand[i + sizeof(IFLO_REG_EPRG)];
+                            } else {
+                                lCmdVal = lastCommand[i];
+                            }
+
+                            if (relMsgPtr[i] != lCmdVal) {
+                                Serial.println(
+                                        "Message does not contain expected value of sent command value at data index " +
+                                        String(i) +
+                                        " SENT: " + String(lCmdVal) +
+                                        " RCVD: " + String(relMsgPtr[i]));
+
+                                reset();
+
+                                return;
+                            }
+                        }
+                    }
+
+                    if (ISDEBUG) Serial.println("Last command confirmed");
+
+                    if (pumpCommandSz == 0) {
+                        Serial.println("Control mode has been reset");
+                        reset();
+
+                        return;
+                    }
+
+                    // We should be good now
+                    switch(curCmdStage) {
+                        case CONFIRM_REMOTE:
+                            Serial.println("Setting command stage to COMMAND");
+                            curCmdStage = COMMAND;
+                            break;
+                        case COMMAND_RESPONSE:
+                            Serial.println("Setting command stage to CTRL_LOCAL");
+                            curCmdStage = CTRL_LOCAL;
+                            break;
+                        case CONFIRM_LOCAL:
+                            Serial.println("Setting command stage to IDLE");
+                            reset();
+                            break;
+                    }
+
+                    // Reset the receiving buffer
+                    memset(msgBuffer, 0, sizeof(msgBuffer));
+                    msgBufPtr = msgBuffer;
+                    responseTTL = RESPONSE_TTL;
+                }
+//                else {
+//                    // We found the start of a message but either the message was incomplete or the checksum failed. Reset everything;
+//                    if (msgStartIdx > -1 || msgLength == 0) {
+//                        if (responseTTL > 0) {
+//                            Serial.println("Partial message received. Waiting for completion...");
+//                        } else {
+//                            Serial.println("Partial message received. Did not receive missing parts, resetting...");
+//                            reset();
+//                        }
+//                    }
+//                }
+            }
+        } else {
+//            // Waiting for message completion
+//            if (responseTTL > 0) {
+//                --responseTTL;
+//                Serial.println("TTL: " + String(responseTTL));
+//            } else {
+//                Serial.println("Partial message received. Did not receive missing parts, resetting...");
+//                reset();
+//            }
+        }
     }
 }
 
-void resetInputBuffer() {
+void reset() {
+    memset(inputCmdBuffer, 0, sizeof(inputCmdBuffer));
+    inputCmdBufPtr = inputCmdBuffer;
     inputComplete = false;
-    memset(inputBuffer, 0, sizeof(inputBuffer));
-    bPointer = inputBuffer;
+    memset(msgBuffer, 0, sizeof(msgBuffer));
+    msgBufPtr = msgBuffer;
+    pumpCommandSz = 0;
+    lastCommandSz = 0;
+    curCmdStage = IDLE;
+    responseTTL = RESPONSE_TTL;
+}
+
+boolean findPAMessage(uint8_t data[], int len, int *msgStartIdx, int *actualMsgLength) {
+    *msgStartIdx = -1; // the starting index of a valid message, if any. 0xA5
+    *actualMsgLength = 0;
+
+    // Find the start of the message
+    for (int i = 0; i < (len - PREAMBLE_LEN); ++i) {
+        if (data[i] == PREAMBLE[0]
+            && data[i + 1] == PREAMBLE[1]
+            && data[i + 2] == PREAMBLE[2]
+            && data[i + 3] == PREAMBLE[3]) {
+            *msgStartIdx = i + 3;
+            break;
+        }
+    }
+
+    if (ISDEBUG) Serial.println("msgStartIdx: " + String(*msgStartIdx));
+    // Check if the found start index + minimum package length is within total length of message
+    if (*msgStartIdx == -1 || (*msgStartIdx + MIN_PKG_LEN) > len) {
+        return false;
+    }
+
+    // Get the actual data length. It's the eigth byte in the message including preamble (or 5th starting at MSG_BGN_IDX
+    int dataLength = data[*msgStartIdx + (MSG_LEN_IDX - MSG_BGN_IDX)];
+    if (ISDEBUG) Serial.println("dataLength: " + String(dataLength));
+    // Check again if total message length is within the boundaries given the data length
+    *actualMsgLength = (MSG_LEN_IDX - MSG_BGN_IDX) + 1 + dataLength + 2; // Index + 1, actual data length, check sum length
+    if (*msgStartIdx + *actualMsgLength > len) {
+        return false;
+    }
+
+    if (ISDEBUG) Serial.println("actualMsgLength: " + String(*actualMsgLength));
+    // Calculate the checksum
+    int chkSum = 0;
+    int expChkSum = (data[*msgStartIdx + *actualMsgLength - 2] * 256) + data[*msgStartIdx + *actualMsgLength - 1];
+    for (int i = *msgStartIdx; i < (*msgStartIdx + *actualMsgLength - 2); ++i) {
+        chkSum += data[i];
+    }
+
+    // Add the leading garbage again to the message
+    *msgStartIdx -= (PREAMBLE_LEN - 1);
+    *actualMsgLength += (PREAMBLE_LEN - 1);
+
+    if (ISDEBUG) Serial.println("msgStartIdx: " + String(*msgStartIdx));
+    if (ISDEBUG) Serial.println("actualMsgLength: " + String(*actualMsgLength));
+    if (ISDEBUG) Serial.println("Calc checksum: " + String(chkSum));
+    if (ISDEBUG) Serial.println("High byte: " + String(data[*msgStartIdx + *actualMsgLength - 2]));
+    if (ISDEBUG) Serial.println("Low byte: " + String(data[*msgStartIdx + *actualMsgLength - 1]));
+    if (ISDEBUG) Serial.println("Exp checksum: " + String(expChkSum));
+
+    // Verify the checksum
+    if (chkSum != expChkSum) {
+        if (ISDEBUG) Serial.println("Checksum is: BAD");
+
+        return false;
+    }
+
+    if (ISDEBUG) Serial.println("Checksum is: GOOD");
+    return true;
 }

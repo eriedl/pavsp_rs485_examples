@@ -1,0 +1,30 @@
+html, body {
+	width: 100%;
+	height: 100%;
+}
+
+#pnlLogContainer {
+	font-family: Menlo, Monaco, Consolas, "Courier New", monospace;
+	font-size: 11px;
+	word-break: break-all
+}
+
+#pnlLogContainer .logError {
+	color: #F56B6B;
+}
+
+#pnlLogContainer .logSuccess {
+	color: #a4db79;
+}
+
+#pnlLogContainer.logInfo {
+	color: #30aadc;
+}
+
+#pnlLogContainer .logWarning {
+	color: #f38733;
+}
+
+select > option.active {
+	border: 1px red dotted;
+}

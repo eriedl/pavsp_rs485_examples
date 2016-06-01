@@ -1,3 +1,10 @@
+/* This program is free software. It comes without any warranty, to
+ * the extent permitted by applicable law. You can redistribute it
+ * and/or modify it under the terms of the Do What The Fuck You Want
+ * To Public License, Version 2, as published by Sam Hocevar. See
+ * http://www.wtfpl.net/ for more details.
+ */
+
 #include <Arduino.h>
 #include <SoftwareSerial.h>
 
@@ -79,13 +86,46 @@ void loop() {
             digitalWrite(Pin13LED, HIGH);
             digitalWrite(SSerialTxControl, RS485Transmit);
 
-            //Flip source/dest
-            uint8_t dst = receiveBuffer[msgStartIdx + 2];
-            receiveBuffer[msgStartIdx + 2] = receiveBuffer[msgStartIdx + 3];
-            receiveBuffer[msgStartIdx + 3] = dst;
+            uint8_t statResp[] = {0xff, 0x00, 0xff, 0xa5, 0x00, 0x11, 0x60, 0x07, 0x0f, 0x0a, 0x00, 0x00, 0x01, 0xe7, 0x07, 0x9e, 0x00, 0x00, 0x00, 0x00, 0x18, 0x01, 0x10, 0x26, 0x03, 0x12};
 
-            RS485Serial.write(PREAMBLE, sizeof(PREAMBLE) / sizeof(uint8_t));
-            RS485Serial.write(&receiveBuffer[msgStartIdx + 1], msgLength - 1);
+            // Send fake status back
+            if (receiveBuffer[msgStartIdx + 4] == 7) {
+                Serial.println("Sending fake status: ");
+                statResp[5] = receiveBuffer[msgStartIdx + 3];
+                statResp[6] = receiveBuffer[msgStartIdx + 2];
+
+                int chkSum = 0;
+                for (int i = 3; i < 24; ++i) {
+                    chkSum += statResp[i];
+                }
+                statResp[24] = chkSum >> 8;
+                statResp[25] = chkSum & 0xFF;
+
+                for (int i = 0; i < sizeof(statResp); ++i) {
+                    Serial.print(statResp[i] < 0x10 ? "0" + String(statResp[i], HEX) : String(statResp[i], HEX));
+                }
+                Serial.println();
+
+                RS485Serial.write(statResp, sizeof(statResp));
+            } else {
+                Serial.println("Echoing message with flipped src/dst: ");
+                //Flip source/dest
+                uint8_t dst = receiveBuffer[msgStartIdx + 2];
+                receiveBuffer[msgStartIdx + 2] = receiveBuffer[msgStartIdx + 3];
+                receiveBuffer[msgStartIdx + 3] = dst;
+
+                for (int i = 0; i < sizeof(PREAMBLE); ++i) {
+                    Serial.print(PREAMBLE[i] < 0x10 ? "0" + String(PREAMBLE[i], HEX) : String(PREAMBLE[i], HEX));
+                }
+
+                for (int i = msgStartIdx + 1; i < msgStartIdx + msgLength; ++i) {
+                    Serial.print(receiveBuffer[i] < 0x10 ? "0" + String(receiveBuffer[i], HEX) : String(receiveBuffer[i], HEX));
+                }
+                Serial.println();
+
+                RS485Serial.write(PREAMBLE, sizeof(PREAMBLE));
+                RS485Serial.write(&receiveBuffer[msgStartIdx + 1], msgLength - 1); // Skip the A5 byte
+            }
 
             digitalWrite(SSerialTxControl, RS485Receive);
             digitalWrite(Pin13LED, LOW);
@@ -101,7 +141,7 @@ void loop() {
     }
 }
 
-boolean findPAMessage(uint8_t *data, int len, int *msgStartIdx, int *actualMsgLength) {
+boolean findPAMessage(uint8_t data[], int len, int *msgStartIdx, int *actualMsgLength) {
     *msgStartIdx = -1; // the starting index of a valid message, if any
     *actualMsgLength = 0;
 
@@ -131,19 +171,19 @@ boolean findPAMessage(uint8_t *data, int len, int *msgStartIdx, int *actualMsgLe
     }
 
     // Calculate the checksum
-    int chkSum = 0;
-    int expChkSum = (data[*msgStartIdx + *actualMsgLength - 2] * 256) + data[*msgStartIdx + *actualMsgLength - 1];
+    int calcChkSum = 0;
+    int msgChkSum = (data[*msgStartIdx + *actualMsgLength - 2] * 256) + data[*msgStartIdx + *actualMsgLength - 1];
     for (int i = *msgStartIdx; i < (*msgStartIdx + *actualMsgLength - 2); ++i) {
-        chkSum += data[i];
+        calcChkSum += data[i];
     }
 
-    Serial.println("Calc checksum: " + String(chkSum));
+    Serial.println("Calc checksum: " + String(calcChkSum));
     Serial.println("High byte: " + String(data[*msgStartIdx + *actualMsgLength - 2]));
     Serial.println("Low byte: " + String(data[*msgStartIdx + *actualMsgLength - 1]));
-    Serial.println("Exp checksum: " + String(expChkSum));
+    Serial.println("Msg checksum: " + String(msgChkSum));
 
     // Verify the checksum
-    if (chkSum != expChkSum) {
+    if (calcChkSum != msgChkSum) {
         Serial.println("Checksum result: FAILED");
 
         return false;

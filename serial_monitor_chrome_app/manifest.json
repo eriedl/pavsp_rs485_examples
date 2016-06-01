@@ -1,0 +1,23 @@
+{
+	"name": "Simple Serial Monitor",
+	"short_name": "Simple Serial Monitor",
+	"description": "Yet another simple serial monitor",
+	"author": "Erhard Riedl",
+	"version": "0.0.1",
+	"manifest_version": 2,
+	"permissions": [
+		"serial",
+		"usb"
+	],
+	"app": {
+		"background": {
+			"scripts": [
+				"js/background.js"
+			]
+		}
+	},
+	"icons": {
+		"16": "images/icon16.png",
+		"128": "images/icon128.png"
+	}
+}
