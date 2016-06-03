@@ -94,6 +94,18 @@ void loop() {
                 statResp[5] = receiveBuffer[msgStartIdx + 3];
                 statResp[6] = receiveBuffer[msgStartIdx + 2];
 
+                // Randomize power
+                statResp[12] = random(0, 15);
+                statResp[13] = random(0, 127);
+
+                // Randomize rpm
+                statResp[14] = random(0, 15);
+                statResp[15] = random(0, 127);
+
+                // Randomize clock
+                statResp[22] = random(0, 23);
+                statResp[23] = random(0, 59);
+
                 int chkSum = 0;
                 for (int i = 3; i < 24; ++i) {
                     chkSum += statResp[i];

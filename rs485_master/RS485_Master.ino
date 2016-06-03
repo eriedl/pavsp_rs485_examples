@@ -184,6 +184,23 @@ size_t pumpCommandSz;
 uint8_t *lastCommand;
 size_t lastCommandSz;
 
+struct pump_status {
+    uint8_t running;
+    uint8_t mode;
+    uint8_t drive_state;
+    uint16_t pwr_usage;
+    uint16_t speed;
+    uint8_t flow_rate;
+    uint8_t ppc_levels;
+    uint8_t b09;
+    uint8_t error_code;
+    uint8_t b11;
+    uint8_t timer;
+    char clock[6] = "--:--";
+};
+
+pump_status pumpStatus;
+
 #define STATUS_QRY_TIMEOUT  1000 * 15   // 15 seconds
 #define COMMAND_TIMEOUT     1000 * 2    // 2 second
 Timer timer1;
@@ -192,7 +209,7 @@ int8_t commandTtlTimerId;
 /* EOF - State machine */
 
 String strCommand;
-#define ISDEBUG             0
+boolean ISDEBUG             = false;
 
 void setup() {
     Serial.begin(9600);
@@ -245,6 +262,10 @@ void loop() {
 
     if (curCmdStage == IDLE && curCommand > CMD_NOOP) {
         switch(curCommand) {
+            case 127:
+                ISDEBUG = (ISDEBUG == true ? false : true);
+                Serial.println("Command: Set ISDEBUG to " + String(ISDEBUG));
+                return;
             case CMD_ALL_OFF:
                 Serial.println("Command: Turning external programs off");
                 pumpCommand = extProgOff;
@@ -412,29 +433,8 @@ void loop() {
 
             // Response should also contain the last command value, unless it was a status request
             if (lastCommand[MSG_CFI_IDX] == IFLO_CMD_STAT) {
-//                if (ISDEBUG) {
-                    Serial.println("Pump status: ");
-                    Serial.println("\tRUN: " + String(relMsgPtr[STAT_RUN_IDX]));
-                    Serial.println("\tMOD: " + String(relMsgPtr[STAT_MODE_IDX]));
-                    Serial.println("\tPMP: " + String(relMsgPtr[STAT_STATE_IDX]));
-                    Serial.println(
-                            "\tPWR: " + String((relMsgPtr[STAT_PWR_HB_IDX] * 256) + relMsgPtr[STAT_PWR_LB_IDX]) +
-                            " WATT");
-                    Serial.println(
-                            "\tRPM: " + String((relMsgPtr[STAT_RPM_HB_IDX] * 256) + relMsgPtr[STAT_RPM_LB_IDX]) +
-                            " RPM");
-                    Serial.println("\tGPM: " + String(relMsgPtr[STAT_GPM_IDX]) + " GPM");
-                    Serial.println("\tPPC: " + String(relMsgPtr[STAT_PPC_IDX]) + " %");
-                    Serial.println("\tB09: " + String(relMsgPtr[STAT_B09_IDX]));
-                    Serial.println("\tERR: " + String(relMsgPtr[STAT_ERR_IDX]));
-                    Serial.println("\tB11: " + String(relMsgPtr[STAT_B11_IDX]));
-                    Serial.println("\tTMR: " + String(relMsgPtr[STAT_TIMER_IDX]) + " MIN");
-                    Serial.println("\tCLK: " + String(relMsgPtr[STAT_CLK_HOUR_IDX]) + ":" +
-                                   (relMsgPtr[STAT_CLK_MIN_IDX] < 0x0A ? "0" + String(relMsgPtr[STAT_CLK_MIN_IDX])
-                                                                       : relMsgPtr[STAT_CLK_MIN_IDX]));
-//                }
-
                 // TODO: Queue attribute updates
+                figureOutChangedAttributes(relMsgPtr);
             } else {
                 for (int i = MSG_LEN_IDX + 1; i < relMsgPtr[MSG_LEN_IDX]; ++i) {
                     uint8_t lCmdVal = 0x00;
@@ -455,7 +455,7 @@ void loop() {
                 }
             }
 
-            if (ISDEBUG) Serial.println("Last command confirmed");
+            Serial.println("Last command confirmed");
 
             // Reset the receiving buffer
             memset(msgBuffer, 0, sizeof(msgBuffer));
@@ -552,6 +552,83 @@ boolean findPAMessage(uint8_t data[], int len, int *msgStartIdx, int *actualMsgL
 
     if (ISDEBUG) Serial.println("Checksum is: GOOD");
     return true;
+}
+
+void figureOutChangedAttributes(uint8_t *statusMsg) {
+    String statOutput = "";
+    if (ISDEBUG) statOutput += "Pump status: \n";
+
+    if (statusMsg[STAT_RUN_IDX] != pumpStatus.running) {
+        pumpStatus.running = statusMsg[STAT_RUN_IDX];
+        if (ISDEBUG) statOutput += "\tRUN: " + String(statusMsg[STAT_RUN_IDX]) + "\n";
+    }
+
+    if (statusMsg[STAT_MODE_IDX] != pumpStatus.mode) {
+        pumpStatus.mode = statusMsg[STAT_MODE_IDX];
+        if (ISDEBUG) statOutput += "\tMOD: " + String(statusMsg[STAT_MODE_IDX]) + "\n";
+    }
+
+    if (statusMsg[STAT_STATE_IDX] != pumpStatus.drive_state) {
+        pumpStatus.drive_state = statusMsg[STAT_STATE_IDX];
+        if (ISDEBUG) statOutput += "\tSTE: " + String(statusMsg[STAT_STATE_IDX]) + "\n";
+    }
+
+    uint16_t pwr_usage = (statusMsg[STAT_PWR_HB_IDX] * 256) + statusMsg[STAT_PWR_LB_IDX];
+    if (pwr_usage != pumpStatus.pwr_usage) {
+        pumpStatus.pwr_usage = pwr_usage;
+        if (ISDEBUG) statOutput += "\tPWR: " + String(pwr_usage) + " WATT" + "\n";
+    }
+
+    uint16_t speed = (statusMsg[STAT_RPM_HB_IDX] * 256) + statusMsg[STAT_RPM_LB_IDX];
+    if (pwr_usage != pumpStatus.speed) {
+        pumpStatus.speed = speed;
+        if (ISDEBUG) statOutput += "\tRPM: " + String(speed) + " RPM" + "\n";
+    }
+
+    if (statusMsg[STAT_GPM_IDX] != pumpStatus.flow_rate) {
+        pumpStatus.flow_rate = statusMsg[STAT_GPM_IDX];
+        if (ISDEBUG) statOutput += "\tGPM: " + String(statusMsg[STAT_GPM_IDX]) + " GPM" + "\n";
+    }
+
+    if (statusMsg[STAT_PPC_IDX] != pumpStatus.ppc_levels) {
+        pumpStatus.ppc_levels = statusMsg[STAT_PPC_IDX];
+        if (ISDEBUG) statOutput += "\tPPC: " + String(statusMsg[STAT_PPC_IDX]) + " %" + "\n";
+    }
+
+    if (statusMsg[STAT_B09_IDX] != pumpStatus.b09) {
+        pumpStatus.b09 = statusMsg[STAT_B09_IDX];
+        if (ISDEBUG) statOutput += "\tB09: " + String(statusMsg[STAT_B09_IDX]) + "\n";
+    }
+
+    if (statusMsg[STAT_ERR_IDX] != pumpStatus.error_code) {
+        pumpStatus.error_code = statusMsg[STAT_ERR_IDX];
+        if (ISDEBUG) statOutput += "\tERR: " + String(statusMsg[STAT_ERR_IDX]) + "\n";
+    }
+
+    if (statusMsg[STAT_B11_IDX] != pumpStatus.b11) {
+        pumpStatus.b11 = statusMsg[STAT_B11_IDX];
+        if (ISDEBUG) statOutput += "\tB11: " + String(statusMsg[STAT_B11_IDX]) + "\n";
+    }
+
+    if (statusMsg[STAT_TIMER_IDX] != pumpStatus.timer) {
+        pumpStatus.timer = statusMsg[STAT_TIMER_IDX];
+        if (ISDEBUG) statOutput += "\tTMR: " + String(statusMsg[STAT_TIMER_IDX]) + " MIN" + "\n";
+    }
+
+    char clk[6] = "--:--";
+    clk[0] = '0' + statusMsg[STAT_CLK_HOUR_IDX] / 10;
+    clk[1] = '0' + statusMsg[STAT_CLK_HOUR_IDX] % 10;
+    clk[3] = '0' + statusMsg[STAT_CLK_MIN_IDX] / 10;
+    clk[4] = '0' + statusMsg[STAT_CLK_MIN_IDX] % 10;
+
+    if (strcmp(clk, pumpStatus.clock) != 0) {
+        strcpy(pumpStatus.clock, clk);
+        if (ISDEBUG) statOutput += "\tCLK: " + String(clk) + "\n";
+    }
+
+    if (ISDEBUG) {
+        Serial.print(statOutput);
+    }
 }
 
 void reset() {
