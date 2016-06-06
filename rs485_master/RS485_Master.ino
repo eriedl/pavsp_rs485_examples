@@ -5,9 +5,12 @@
  * http://www.wtfpl.net/ for more details.
  */
 
-#include <Arduino.h>
 #include <SoftwareSerial.h>
 #include <Timer.h>
+#include <SPI.h>
+#include <iafLib.h>
+#include <ArduinoSPI.h>
+#include "profile/device-description.h"
 
 #define SSerialTx           8 // DI: data in
 #define SSerialTxControl    9 // DE: data enable
@@ -18,7 +21,7 @@
 
 #define Pin13LED            13
 
-/* Pump commands and instructions */
+//region Pump commands and instructions
 #define BROADCAST_ADDRESS   0x0F
 
 // Pump programming commands, this command writes instructions to a memory register. I.e. preset up to 4 programs to run
@@ -44,6 +47,7 @@
 // Not sure what the below does... According to Michael's readme in PABSHARE, one can set the also some modes with this. But it's not clear
 // how these commands relate to IFLO_CMD_REG. Presumably the following just instructs the pump to run whatever has been programmed with IFLO_CMD_REG
 // It also seems that these commands are sent once and the pump will just run with it, whereas IFLO_CMG_REG commands have to be repeated every 30 seconds
+// TODO: We'll need a queue to handle the following commands as we can't release control of the pump until all settings have bee set and the pump turned on
 #define IFLO_CMD_MODE       0x05
 #define	IFLO_MODE_FILTER	0x00 /* Filter */
 #define	IFLO_MODE_MANUAL	0x01 /* Manual */
@@ -63,15 +67,15 @@
 #define IFLO_RUN_STRT   	0x0A
 #define IFLO_RUN_STOP   	0x04
 
-// Is supposedly reorted on byte 3, but it's alwasy 0x00 in my case. It may depend on the system setup or pump model
+// Is supposedly reported on byte 3, but it's alwasy 0x00 in my case. It may depend on the system setup or pump model
 #define IFLO_STATE_PRIMING  0x01
 #define IFLO_STATE_RUNNING  0x02
 #define IFLO_STATE_SYS_PRIMING  0x04
 
 #define IFLO_CMD_STAT       0x07
-/* EOF - Pump commands and instructions */
+//endregion Pump commands and instructions
 
-/* Pump message structure related stuff like indexes, constants, etc. */
+//region Pump message structure related stuff like indexes, constants, etc.
 /*
    Every device on the bus has an address:
        0x0f - is the broadcast address, it is used by the more sophisticated controllers as <dst>
@@ -83,7 +87,7 @@
    Let's use 0x20, the first address in the remote controller space
  */
 uint8_t PUMP_ADDRESS        = 0x60;
-uint8_t MY_ADDRESS          = 0x20;
+uint8_t CTLR_ADDRESS          = 0x20;
 
 #define PREAMBLE_LEN        0x04
 const uint8_t PREAMBLE[] = { 0xFF, 0x00, 0xFF, 0xA5 };
@@ -114,27 +118,69 @@ const uint8_t PREAMBLE[] = { 0xFF, 0x00, 0xFF, 0xA5 };
 #define STAT_CLK_MIN_IDX    0x17
 
 //                                             P R E A M B L E                     VER   DST           SRC         CFI               LEN   DAT                    CHB   CLB (Check Sum is set when sending command, depends on addresses used)
-uint8_t setCtrlRemote[]     = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, PUMP_ADDRESS, MY_ADDRESS, IFLO_CMD_CTRL,    0x01, IFLO_CTRL_REMOTE,      0x00, 0x00};
-uint8_t setCtrlLocal[]      = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, PUMP_ADDRESS, MY_ADDRESS, IFLO_CMD_CTRL,    0x01, IFLO_CTRL_LOCAL,       0x00, 0x00};
-uint8_t getStatus[]         = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, PUMP_ADDRESS, MY_ADDRESS, IFLO_CMD_STAT,    0x00,                        0x00, 0x00};
-uint8_t extProgOff[]        = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, PUMP_ADDRESS, MY_ADDRESS, IFLO_CMD_REG,     0x04, (IFLO_REG_EPRG >> 8), (IFLO_REG_EPRG & 0xFF), (IFLO_EPRG_OFF >> 8), (IFLO_EPRG_OFF & 0xFF), 0x00, 0x00};
-uint8_t runExtProg1[]       = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, PUMP_ADDRESS, MY_ADDRESS, IFLO_CMD_REG,     0x04, (IFLO_REG_EPRG >> 8), (IFLO_REG_EPRG & 0xFF), (IFLO_EPRG_P1 >> 8), (IFLO_EPRG_P1 & 0xFF), 0x00, 0x00};
-uint8_t runExtProg2[]       = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, PUMP_ADDRESS, MY_ADDRESS, IFLO_CMD_REG,     0x04, (IFLO_REG_EPRG >> 8), (IFLO_REG_EPRG & 0xFF), (IFLO_EPRG_P2 >> 8), (IFLO_EPRG_P2 & 0xFF), 0x00, 0x00};
-uint8_t runExtProg3[]       = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, PUMP_ADDRESS, MY_ADDRESS, IFLO_CMD_REG,     0x04, (IFLO_REG_EPRG >> 8), (IFLO_REG_EPRG & 0xFF), (IFLO_EPRG_P3 >> 8), (IFLO_EPRG_P3 & 0xFF), 0x00, 0x00};
-uint8_t runExtProg4[]       = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, PUMP_ADDRESS, MY_ADDRESS, IFLO_CMD_REG,     0x04, (IFLO_REG_EPRG >> 8), (IFLO_REG_EPRG & 0xFF), (IFLO_EPRG_P4 >> 8), (IFLO_EPRG_P4 & 0xFF), 0x00, 0x00};
-uint8_t startPump[]         = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, PUMP_ADDRESS, MY_ADDRESS, IFLO_CMD_RUN,     0x01, IFLO_RUN_STRT,         0x00, 0x00};
-uint8_t stopPump[]          = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, PUMP_ADDRESS, MY_ADDRESS, IFLO_CMD_RUN,     0x01, IFLO_RUN_STOP,         0x00, 0x00};
-/* EOF - Pump message structure related stuff like indexes, constants, etc. */
+uint8_t setCtrlRemote[]     = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, PUMP_ADDRESS, CTLR_ADDRESS, IFLO_CMD_CTRL,    0x01, IFLO_CTRL_REMOTE,      0x00, 0x00};
+uint8_t setCtrlLocal[]      = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, PUMP_ADDRESS, CTLR_ADDRESS, IFLO_CMD_CTRL,    0x01, IFLO_CTRL_LOCAL,       0x00, 0x00};
+uint8_t getStatus[]         = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, PUMP_ADDRESS, CTLR_ADDRESS, IFLO_CMD_STAT,    0x00,                        0x00, 0x00};
+uint8_t extProgOff[]        = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, PUMP_ADDRESS, CTLR_ADDRESS, IFLO_CMD_REG,     0x04, (IFLO_REG_EPRG >> 8), (IFLO_REG_EPRG & 0xFF), (IFLO_EPRG_OFF >> 8), (IFLO_EPRG_OFF & 0xFF), 0x00, 0x00};
+uint8_t runExtProg1[]       = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, PUMP_ADDRESS, CTLR_ADDRESS, IFLO_CMD_REG,     0x04, (IFLO_REG_EPRG >> 8), (IFLO_REG_EPRG & 0xFF), (IFLO_EPRG_P1 >> 8), (IFLO_EPRG_P1 & 0xFF), 0x00, 0x00};
+uint8_t runExtProg2[]       = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, PUMP_ADDRESS, CTLR_ADDRESS, IFLO_CMD_REG,     0x04, (IFLO_REG_EPRG >> 8), (IFLO_REG_EPRG & 0xFF), (IFLO_EPRG_P2 >> 8), (IFLO_EPRG_P2 & 0xFF), 0x00, 0x00};
+uint8_t runExtProg3[]       = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, PUMP_ADDRESS, CTLR_ADDRESS, IFLO_CMD_REG,     0x04, (IFLO_REG_EPRG >> 8), (IFLO_REG_EPRG & 0xFF), (IFLO_EPRG_P3 >> 8), (IFLO_EPRG_P3 & 0xFF), 0x00, 0x00};
+uint8_t runExtProg4[]       = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, PUMP_ADDRESS, CTLR_ADDRESS, IFLO_CMD_REG,     0x04, (IFLO_REG_EPRG >> 8), (IFLO_REG_EPRG & 0xFF), (IFLO_EPRG_P4 >> 8), (IFLO_EPRG_P4 & 0xFF), 0x00, 0x00};
+uint8_t startPump[]         = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, PUMP_ADDRESS, CTLR_ADDRESS, IFLO_CMD_RUN,     0x01, IFLO_RUN_STRT,         0x00, 0x00};
+uint8_t stopPump[]          = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, PUMP_ADDRESS, CTLR_ADDRESS, IFLO_CMD_RUN,     0x01, IFLO_RUN_STOP,         0x00, 0x00};
+//endregion Pump message structure related stuff like indexes, constants, etc.
+
+//region afLib stuff
+// Automatically detect if we are on Teensy or UNO.
+#if defined(ARDUINO_AVR_UNO)
+#define INT_PIN                   2
+#define CS_PIN                    10
+
+#elif defined(ARDUINO_AVR_MEGA2560)
+#define INT_PIN                   2
+#define CS_PIN                    10
+#define RESET                     21    // This is used to reboot the Modulo when the Teensy boots
+
+// Need to define these as inputs so they will float and we can connect the real pins for SPI on the
+// 2560 which are 50 - 52. You need to use jumper wires to connect the pins from the 2560 to the Plinto.
+// Since the 2560 is 5V, you must use a Plinto adapter.
+#define MOSI                      11    // 51 on Mega 2560
+#define MISO                      12    // 50 on Mega 2560
+#define SCK                       13    // 52 on Mega 2560
+
+#elif defined(TEENSYDUINO)
+#define INT_PIN                   14    // Modulo uses this to initiate communication
+#define CS_PIN                    10    // Standard SPI chip select (aka SS)
+#define RESET                     21    // This is used to reboot the Modulo when the Teensy boots
+#else
+#error "Sorry, afLib does not support this board"
+#endif
+
+iafLib *aflib;
+//endregion
+
+//region Function declarations
+void queuePumpInstruction(const uint8_t *instruction);
+boolean findPAMessage(const uint8_t *data, const int len, int *msgStartIdx, int *actualMsgLength);
+void figureOutChangedAttributes(const uint8_t *statusMsg);
+void reset();
+
+void queryStatusCb();
+void commandTimeoutCb();
+
+void onAttrSet(const uint8_t requestId, const uint16_t attributeId, const uint16_t valueLen, const uint8_t *value);
+void onAttrSetComplete(const uint8_t requestId, const uint16_t attributeId, const uint16_t valueLen, const uint8_t *value);
+//endregion
 
 SoftwareSerial RS485Serial(SSerialRx, SSerialTx); // RX, TX
 
-/* Serial command input */
+//region Serial command input
 #define MAX_INPUT_LEN       16
 uint8_t inputCmdBuffer[MAX_INPUT_LEN];
 uint8_t *inputCmdBufPtr;
-/* EOF - Serial command input */
+//endregion Serial command input
 
-/* RS485 message processing */
+//region RS485 message processing
 // The theoretical maximum is 264 bytes. however, it seems that actual message are much shorter, i.e. 37 bytes was
 // the longest seen so far. So, allocate 2x size of an expected message size: 2 x 32 bytes.
 //
@@ -144,15 +190,15 @@ uint8_t *inputCmdBufPtr;
 #define RCV_BUF_SZ          (3 + MAX_PKG_LEN) * 2 // 86 bytes, includes preamble
 uint8_t msgBuffer[RCV_BUF_SZ];
 uint8_t *msgBufPtr;
-/* EOF - RS485 message processing */
+//endregion RS485 message processing
 
-/* State machine */
-// 1. Send Remote Ctrl
+//region State machine
+/* 1. Send Remote Ctrl
 // 1.1 Wait for confirmation
 // 2. Send Command
 // 2.1 Process confirmation/response, i.e. status
 // 3. Send Local Ctrl
-// 3.1 Wait for confirmation
+// 3.1 Wait for confirmation */
 enum COMMAND_STAGE {
     IDLE,
     CTRL_REMOTE,
@@ -178,13 +224,14 @@ enum COMMAND {
 };
 
 enum COMMAND_STAGE curCmdStage;
-uint8_t curCommand;
 uint8_t *pumpCommand;
 size_t pumpCommandSz;
 uint8_t *lastCommand;
 size_t lastCommandSz;
 
 struct pump_status {
+    uint8_t pumpAddr;
+    uint8_t ctlrAddr;
     uint8_t running;
     uint8_t mode;
     uint8_t drive_state;
@@ -206,13 +253,17 @@ pump_status pumpStatus;
 Timer timer1;
 int8_t statusQryTimerId;
 int8_t commandTtlTimerId;
-/* EOF - State machine */
+//endregion State machine
 
 String strCommand;
 boolean ISDEBUG             = false;
 
 void setup() {
     Serial.begin(9600);
+    while (!Serial) {
+        ;
+    }
+
     Serial.println("Arduino Pentair Pool Pump Controller...");
 
     pinMode(SSerialTxControl, OUTPUT);
@@ -223,6 +274,53 @@ void setup() {
     digitalWrite(SSerialTxControl, RS485Receive);
     // Start the software serial port, to another device
     RS485Serial.begin(9600);   // set the data rate
+
+    //region Arduino Board setup
+    // The Plinto board automatically connects reset on UNO to reset on Modulo
+    // For Teensy, we need to reset manually...
+#if defined(TEENSYDUINO)
+    Serial.println("Using Teensy - Resetting Modulo");
+    pinMode(RESET, OUTPUT);
+    digitalWrite(RESET, 0);
+    delay(250);
+    digitalWrite(RESET, 1);
+#endif
+
+#if defined(ARDUINO_AVR_MEGA2560)
+    Serial.println("Using MEGA2560 - Resetting Modulo");
+
+    // Allow the Plinto SPI pins to float, we'll drive them from elsewhere
+    pinMode(MOSI, INPUT);
+    pinMode(MISO, INPUT);
+    pinMode(SCK, INPUT);
+
+    pinMode(RESET, OUTPUT);
+    digitalWrite(RESET, 0);
+    delay(250);
+    digitalWrite(RESET, 1);
+    delay(1000);
+#endif
+    //endregion Arduino Board setup
+
+    // TODO: Do we need this?
+    ArduinoSPI *arduinoSPI = new ArduinoSPI(CS_PIN);
+
+    /**
+    * Initialize the afLib
+    *
+    * Just need to configure a few things:
+    *  INT_PIN - the pin used slave interrupt
+    *  ISRWrapper - function to pass interrupt on to afLib
+    *  onAttrSet - the function to be called when one of your attributes has been set.
+    *  onAttrSetComplete - the function to be called in response to a getAttribute call or when a afero attribute has been updated.
+    *  Serial - class to handle serial communications for debug output.
+    *  theSPI - class to handle SPI communications.
+    */
+    aflib = iafLib::create(digitalPinToInterrupt(INT_PIN), ISRWrapper, onAttrSet, onAttrSetComplete, &Serial, arduinoSPI);
+
+    //Initialize the pump status
+    pumpStatus.pumpAddr = PUMP_ADDRESS;
+    pumpStatus.ctlrAddr = CTLR_ADDRESS;
 
     reset(); // Reset all variables to their default
 
@@ -240,7 +338,7 @@ void loop() {
             // Line ending indicates end of command
             if (iRcv == 0x0A || iRcv == 0x0D) {
                 strCommand = String((char *)inputCmdBuffer);
-                curCommand = strCommand.toInt();
+                queuePumpInstruction((uint8_t *)strCommand.toInt());
 
                 break;
             }
@@ -258,75 +356,6 @@ void loop() {
                 break;
             }
         }
-    }
-
-    if (curCmdStage == IDLE && curCommand > CMD_NOOP) {
-        switch(curCommand) {
-            case 127:
-                ISDEBUG = (ISDEBUG == true ? false : true);
-                Serial.println("Command: Set ISDEBUG to " + String(ISDEBUG));
-                return;
-            case CMD_ALL_OFF:
-                Serial.println("Command: Turning external programs off");
-                pumpCommand = extProgOff;
-                pumpCommandSz = sizeof(extProgOff);
-                break;
-            case CMD_RUN_PROG_1:
-                Serial.println("Command: Running external program 1");
-                pumpCommand = runExtProg1;
-                pumpCommandSz = sizeof(runExtProg1);
-                break;
-            case CMD_RUN_PROG_2:
-                Serial.println("Command: Running external program 2");
-                pumpCommand = runExtProg2;
-                pumpCommandSz = sizeof(runExtProg2);
-                break;
-            case CMD_RUN_PROG_3:
-                Serial.println("Command: Running external program 3");
-                pumpCommand = runExtProg3;
-                pumpCommandSz = sizeof(runExtProg3);
-                break;
-            case CMD_RUN_PROG_4:
-                Serial.println("Command: Running external program 4");
-                pumpCommand = runExtProg4;
-                pumpCommandSz = sizeof(runExtProg4);
-                break;
-            case CMD_STATUS:
-                Serial.println("Command: Querying pump status");
-                pumpCommand = getStatus;
-                pumpCommandSz = sizeof(getStatus);
-                break;
-            case CMD_CTRL_REMOTE:
-                Serial.println("Command: Setting control remote");
-                pumpCommandSz = 0;
-                curCmdStage = CTRL_REMOTE;
-                break;
-            case CMD_CTRL_LOCAL:
-                Serial.println("Command: Setting control local");
-                pumpCommandSz = 0;
-                curCmdStage = CTRL_LOCAL;
-                break;
-            case CMD_PUMP_ON:
-                Serial.println("Command: Turning pump on");
-                pumpCommand = startPump;
-                pumpCommandSz = sizeof(startPump);
-                break;
-            case CMD_PUMP_OFF:
-                Serial.println("Command: Turning pump off");
-                pumpCommand = stopPump;
-                pumpCommandSz = sizeof(stopPump);
-                break;
-            default:
-                Serial.print("What? Resetting....");
-                reset();
-
-                return;
-        }
-
-        curCmdStage = CTRL_REMOTE;
-        commandTtlTimerId = timer1.after(COMMAND_TIMEOUT, commandTimeoutCb);
-        memset(inputCmdBuffer, 0, sizeof(inputCmdBuffer));
-        inputCmdBufPtr = inputCmdBuffer;
     }
     //endregion
 
@@ -415,7 +444,7 @@ void loop() {
         if (msgFound == true) {
             uint8_t *relMsgPtr = &msgBuffer[msgStartIdx];
             // Reset the buffer and bail if the message was not for us
-            if (relMsgPtr[MSG_DST_IDX] != MY_ADDRESS || relMsgPtr[MSG_SRC_IDX] != PUMP_ADDRESS) {
+            if (relMsgPtr[MSG_DST_IDX] != CTLR_ADDRESS || relMsgPtr[MSG_SRC_IDX] != PUMP_ADDRESS) {
                 if (ISDEBUG) Serial.println("Message not for us SRC: " + String(relMsgPtr[MSG_DST_IDX], HEX) + " DST: " + String(relMsgPtr[MSG_SRC_IDX], HEX));
                 memset(msgBuffer, 0, sizeof(msgBuffer));
                 msgBufPtr = msgBuffer;
@@ -463,7 +492,7 @@ void loop() {
             timer1.stop(commandTtlTimerId);
             commandTtlTimerId = -1;
 
-            if (pumpCommandSz == 0) {
+            if (pumpCommand == NULL || pumpCommandSz == 0) {
                 Serial.println("Control mode has been reset");
                 reset();
 
@@ -492,7 +521,78 @@ void loop() {
     timer1.update();
 }
 
-boolean findPAMessage(uint8_t data[], int len, int *msgStartIdx, int *actualMsgLength) {
+void queuePumpInstruction(const uint8_t *instruction) {
+    if (curCmdStage == IDLE && *instruction > CMD_NOOP) {
+        switch(*instruction) {
+            case 127:
+                ISDEBUG = (ISDEBUG == true ? false : true);
+                Serial.println("Command: Set ISDEBUG to " + String(ISDEBUG));
+                return;
+            case CMD_ALL_OFF:
+                Serial.println("Command: Turning external programs off");
+                pumpCommand = extProgOff;
+                pumpCommandSz = sizeof(extProgOff);
+                break;
+            case CMD_RUN_PROG_1:
+                Serial.println("Command: Running external program 1");
+                pumpCommand = runExtProg1;
+                pumpCommandSz = sizeof(runExtProg1);
+                break;
+            case CMD_RUN_PROG_2:
+                Serial.println("Command: Running external program 2");
+                pumpCommand = runExtProg2;
+                pumpCommandSz = sizeof(runExtProg2);
+                break;
+            case CMD_RUN_PROG_3:
+                Serial.println("Command: Running external program 3");
+                pumpCommand = runExtProg3;
+                pumpCommandSz = sizeof(runExtProg3);
+                break;
+            case CMD_RUN_PROG_4:
+                Serial.println("Command: Running external program 4");
+                pumpCommand = runExtProg4;
+                pumpCommandSz = sizeof(runExtProg4);
+                break;
+            case CMD_STATUS:
+                Serial.println("Command: Querying pump status");
+                pumpCommand = getStatus;
+                pumpCommandSz = sizeof(getStatus);
+                break;
+            case CMD_CTRL_REMOTE:
+                Serial.println("Command: Setting control remote");
+                pumpCommandSz = 0;
+                curCmdStage = CTRL_REMOTE;
+                break;
+            case CMD_CTRL_LOCAL:
+                Serial.println("Command: Setting control local");
+                pumpCommandSz = 0;
+                curCmdStage = CTRL_LOCAL;
+                break;
+            case CMD_PUMP_ON:
+                Serial.println("Command: Turning pump on");
+                pumpCommand = startPump;
+                pumpCommandSz = sizeof(startPump);
+                break;
+            case CMD_PUMP_OFF:
+                Serial.println("Command: Turning pump off");
+                pumpCommand = stopPump;
+                pumpCommandSz = sizeof(stopPump);
+                break;
+            default:
+                Serial.print("What? Resetting....");
+                reset();
+
+                return;
+        }
+
+        curCmdStage = CTRL_REMOTE;
+        commandTtlTimerId = timer1.after(COMMAND_TIMEOUT, commandTimeoutCb);
+        memset(inputCmdBuffer, 0, sizeof(inputCmdBuffer));
+        inputCmdBufPtr = inputCmdBuffer;
+    }
+}
+
+boolean findPAMessage(const uint8_t *data, const int len, int *msgStartIdx, int *actualMsgLength) {
     *msgStartIdx = -1; // the starting index of a valid message, if any. 0xA5
     *actualMsgLength = 0;
 
@@ -554,65 +654,98 @@ boolean findPAMessage(uint8_t data[], int len, int *msgStartIdx, int *actualMsgL
     return true;
 }
 
-void figureOutChangedAttributes(uint8_t *statusMsg) {
+void figureOutChangedAttributes(const uint8_t *statusMsg) {
     String statOutput = "";
     if (ISDEBUG) statOutput += "Pump status: \n";
 
     if (statusMsg[STAT_RUN_IDX] != pumpStatus.running) {
         pumpStatus.running = statusMsg[STAT_RUN_IDX];
         if (ISDEBUG) statOutput += "\tRUN: " + String(statusMsg[STAT_RUN_IDX]) + "\n";
+        if (aflib->setAttribute8(AF_STATUS__PUMP_RUNNING_STATE, pumpStatus.running) != afSUCCESS) {
+            if (ISDEBUG) Serial.println("Couldn't set running status attribute");
+        }
     }
 
     if (statusMsg[STAT_MODE_IDX] != pumpStatus.mode) {
         pumpStatus.mode = statusMsg[STAT_MODE_IDX];
         if (ISDEBUG) statOutput += "\tMOD: " + String(statusMsg[STAT_MODE_IDX]) + "\n";
+        if (aflib->setAttribute8(AF_STATUS__PUMP_MODE, pumpStatus.mode) != afSUCCESS) {
+            if (ISDEBUG) Serial.println("Couldn't set mode attribute");
+        }
     }
 
     if (statusMsg[STAT_STATE_IDX] != pumpStatus.drive_state) {
         pumpStatus.drive_state = statusMsg[STAT_STATE_IDX];
         if (ISDEBUG) statOutput += "\tSTE: " + String(statusMsg[STAT_STATE_IDX]) + "\n";
+        if (aflib->setAttribute8(AF_STATUS__PUMP_DRIVE_STATE, pumpStatus.drive_state) != afSUCCESS) {
+            if (ISDEBUG) Serial.println("Couldn't set drive state attribute");
+        }
     }
 
     uint16_t pwr_usage = (statusMsg[STAT_PWR_HB_IDX] * 256) + statusMsg[STAT_PWR_LB_IDX];
     if (pwr_usage != pumpStatus.pwr_usage) {
         pumpStatus.pwr_usage = pwr_usage;
         if (ISDEBUG) statOutput += "\tPWR: " + String(pwr_usage) + " WATT" + "\n";
+        if (aflib->setAttribute16(AF_STATUS__PUMP_POWER_USAGE__W_, pumpStatus.pwr_usage) != afSUCCESS) {
+            if (ISDEBUG) Serial.println("Couldn't set power usage attribute");
+        }
     }
 
     uint16_t speed = (statusMsg[STAT_RPM_HB_IDX] * 256) + statusMsg[STAT_RPM_LB_IDX];
-    if (pwr_usage != pumpStatus.speed) {
+    if (speed != pumpStatus.speed) {
         pumpStatus.speed = speed;
         if (ISDEBUG) statOutput += "\tRPM: " + String(speed) + " RPM" + "\n";
+        if (aflib->setAttribute16(AF_STATUS__PUMP_SPEED__RPM_, pumpStatus.speed) != afSUCCESS) {
+            if (ISDEBUG) Serial.println("Couldn't set speed attribute");
+        }
     }
 
     if (statusMsg[STAT_GPM_IDX] != pumpStatus.flow_rate) {
         pumpStatus.flow_rate = statusMsg[STAT_GPM_IDX];
         if (ISDEBUG) statOutput += "\tGPM: " + String(statusMsg[STAT_GPM_IDX]) + " GPM" + "\n";
+        if (aflib->setAttribute8(AF_STATUS__PUMP_FLOW_RATE__GPM_, pumpStatus.flow_rate) != afSUCCESS) {
+            if (ISDEBUG) Serial.println("Couldn't set flow rate attribute");
+        }
     }
 
     if (statusMsg[STAT_PPC_IDX] != pumpStatus.ppc_levels) {
         pumpStatus.ppc_levels = statusMsg[STAT_PPC_IDX];
         if (ISDEBUG) statOutput += "\tPPC: " + String(statusMsg[STAT_PPC_IDX]) + " %" + "\n";
+        if (aflib->setAttribute8(AF_STATUS__PUMP_PPC_LEVELS____, pumpStatus.speed) != afSUCCESS) {
+            if (ISDEBUG) Serial.println("Couldn't set PPC levels attribute");
+        }
     }
 
     if (statusMsg[STAT_B09_IDX] != pumpStatus.b09) {
         pumpStatus.b09 = statusMsg[STAT_B09_IDX];
         if (ISDEBUG) statOutput += "\tB09: " + String(statusMsg[STAT_B09_IDX]) + "\n";
+        if (aflib->setAttribute8(AF_STATUS__PUMP_BYTE_09____, pumpStatus.b09) != afSUCCESS) {
+            if (ISDEBUG) Serial.println("Couldn't set byte 09 attribute");
+        }
     }
 
     if (statusMsg[STAT_ERR_IDX] != pumpStatus.error_code) {
         pumpStatus.error_code = statusMsg[STAT_ERR_IDX];
         if (ISDEBUG) statOutput += "\tERR: " + String(statusMsg[STAT_ERR_IDX]) + "\n";
+        if (aflib->setAttribute8(AF_STATUS__PUMP_ERROR_CODE, pumpStatus.error_code) != afSUCCESS) {
+            if (ISDEBUG) Serial.println("Couldn't set error code attribute");
+        }
     }
 
     if (statusMsg[STAT_B11_IDX] != pumpStatus.b11) {
         pumpStatus.b11 = statusMsg[STAT_B11_IDX];
         if (ISDEBUG) statOutput += "\tB11: " + String(statusMsg[STAT_B11_IDX]) + "\n";
+        if (aflib->setAttribute8(AF_STATUS__PUMP_BYTE_11____, pumpStatus.b11) != afSUCCESS) {
+            if (ISDEBUG) Serial.println("Couldn't set byte 11 attribute");
+        }
     }
 
     if (statusMsg[STAT_TIMER_IDX] != pumpStatus.timer) {
         pumpStatus.timer = statusMsg[STAT_TIMER_IDX];
         if (ISDEBUG) statOutput += "\tTMR: " + String(statusMsg[STAT_TIMER_IDX]) + " MIN" + "\n";
+        if (aflib->setAttribute16(AF_STATUS__PUMP_TIMER__MIN_, pumpStatus.timer) != afSUCCESS) {
+            if (ISDEBUG) Serial.println("Couldn't set timer attribute");
+        }
     }
 
     char clk[6] = "--:--";
@@ -624,6 +757,9 @@ void figureOutChangedAttributes(uint8_t *statusMsg) {
     if (strcmp(clk, pumpStatus.clock) != 0) {
         strcpy(pumpStatus.clock, clk);
         if (ISDEBUG) statOutput += "\tCLK: " + String(clk) + "\n";
+        if (aflib->setAttribute(AF_STATUS__PUMP_CLOCK__HH_MM_, AF_STATUS__PUMP_CLOCK__HH_MM__SZ, pumpStatus.clock) != afSUCCESS) {
+            if (ISDEBUG) Serial.println("Couldn't set clock attribute");
+        }
     }
 
     if (ISDEBUG) {
@@ -639,10 +775,11 @@ void reset() {
     inputCmdBufPtr = inputCmdBuffer;
     memset(msgBuffer, 0, sizeof(msgBuffer));
     msgBufPtr = msgBuffer;
+    *pumpCommand = NULL;
     pumpCommandSz = 0;
+    *lastCommand = NULL;
     lastCommandSz = 0;
     curCmdStage = IDLE;
-    curCommand = CMD_NOOP;
     commandTtlTimerId = -1;
 }
 
@@ -652,9 +789,7 @@ void reset() {
 void queryStatusCb() {
     Serial.println("Status query callback executing... curCmdStage: " + String(curCmdStage));
 
-    if (curCmdStage == IDLE) {
-        curCommand = CMD_STATUS;
-    }
+    queuePumpInstruction((uint8_t *)CMD_STATUS);
 }
 
 /*
@@ -667,3 +802,50 @@ void commandTimeoutCb() {
         reset();
     }
 }
+
+//region afLib integration
+/*
+ * Define this wrapper to allow the instance method to be called
+ * when the interrupt fires. We do this because attachInterrupt
+ * requires a method with no parameters and the instance method
+ * has an invisible parameter (this).
+ */
+void ISRWrapper() {
+    if (aflib) {
+        aflib->mcuISR();
+    }
+}
+
+/*
+ * This is called when the service changes one of our attributes.
+ */
+void onAttrSet(const uint8_t requestId, const uint16_t attributeId, const uint16_t valueLen, const uint8_t *value) {
+    switch (attributeId) {
+        // This MCU attribute tells us whether we should be blinking.
+        case AF_COMMAND:
+            queuePumpInstruction(value);
+            break;
+        case AF_SET_PUMP_ADDRESS:
+            PUMP_ADDRESS = *value;
+            break;
+        case AF_SET_CONTROLLER_ADDRESS:
+            CTLR_ADDRESS = *value;
+            break;
+        default:
+            break;
+    }
+
+    if (aflib->setAttributeComplete(requestId, attributeId, valueLen, value) != afSUCCESS) {
+        Serial.println("setAttributeComplete failed!");
+    }
+}
+
+/*
+ * This is called when either an Afero attribute has been changed via setAttribute or in response
+ * to a getAttribute call.
+ */
+void onAttrSetComplete(const uint8_t requestId, const uint16_t attributeId, const uint16_t valueLen, const uint8_t *value) {
+    // TODO: I think this is a noop in our case as there is nothing for us to do if an attribute is setb
+    if (ISDEBUG) Serial.println("onAttrSetComplete: " + String(attributeId) + ":" + String(*value));
+}
+//endregion afLib integration

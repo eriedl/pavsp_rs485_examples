@@ -1,0 +1,14 @@
+{
+	"name": "Pentair Pool Pump Status Monitor",
+	"createDate": 1464885857226,
+	"apeVersion": "0.9.4",
+	"originalProfileId": "",
+	"latestProfileId": "",
+	"presentationProfileList": [
+		"1464885857226"
+	],
+	"presentationDirMap": {
+		"1464885857226": "1464885857226"
+	},
+	"debugBuild": true
+}
