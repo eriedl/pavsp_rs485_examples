@@ -338,7 +338,11 @@ void loop() {
             // Line ending indicates end of command
             if (iRcv == 0x0A || iRcv == 0x0D) {
                 strCommand = String((char *)inputCmdBuffer);
-                queuePumpInstruction((uint8_t *)strCommand.toInt());
+                uint8_t c = strCommand.toInt();
+                queuePumpInstruction(&c);
+
+                memset(inputCmdBuffer, 0, sizeof(inputCmdBuffer));
+                inputCmdBufPtr = inputCmdBuffer;
 
                 break;
             }
@@ -408,6 +412,8 @@ void loop() {
         if (ISDEBUG) Serial.println(", Checksum: " + String(chkSum));
 
         digitalWrite(SSerialTxControl, RS485Receive);
+
+        commandTtlTimerId = timer1.after(COMMAND_TIMEOUT, commandTimeoutCb);
     }
     //endregion
 
@@ -521,8 +527,22 @@ void loop() {
     timer1.update();
 }
 
+/*
+ * Build the queue of instructions we need to send to the pump to make the current command work.
+ * For example, if we want to run Program 1, we need to
+ * 1. Put the pump into remote control
+ * 1.1 Confirm remote control
+ * 2. Set program(s), write memory or set mode
+ * 2.1 Confirm commands that are in the queue
+ * 3. repeat 2. until everything is set
+ * 4. Put the pump into local control mode again
+ *
+ * TODO: Keep track of remote/local control setting.
+ */
 void queuePumpInstruction(const uint8_t *instruction) {
     if (curCmdStage == IDLE && *instruction > CMD_NOOP) {
+        curCmdStage = CTRL_REMOTE;
+
         switch(*instruction) {
             case 127:
                 ISDEBUG = (ISDEBUG == true ? false : true);
@@ -584,11 +604,6 @@ void queuePumpInstruction(const uint8_t *instruction) {
 
                 return;
         }
-
-        curCmdStage = CTRL_REMOTE;
-        commandTtlTimerId = timer1.after(COMMAND_TIMEOUT, commandTimeoutCb);
-        memset(inputCmdBuffer, 0, sizeof(inputCmdBuffer));
-        inputCmdBufPtr = inputCmdBuffer;
     }
 }
 
@@ -788,8 +803,8 @@ void reset() {
  */
 void queryStatusCb() {
     Serial.println("Status query callback executing... curCmdStage: " + String(curCmdStage));
-
-    queuePumpInstruction((uint8_t *)CMD_STATUS);
+    uint8_t c = CMD_STATUS;
+    queuePumpInstruction(&c);
 }
 
 /*
@@ -845,7 +860,7 @@ void onAttrSet(const uint8_t requestId, const uint16_t attributeId, const uint16
  * to a getAttribute call.
  */
 void onAttrSetComplete(const uint8_t requestId, const uint16_t attributeId, const uint16_t valueLen, const uint8_t *value) {
-    // TODO: I think this is a noop in our case as there is nothing for us to do if an attribute is setb
+    // This is a noop in our case as there is nothing for us to do if an attribute is setb
     if (ISDEBUG) Serial.println("onAttrSetComplete: " + String(attributeId) + ":" + String(*value));
 }
 //endregion afLib integration
