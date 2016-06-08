@@ -7,7 +7,7 @@ project(${PROJECT_NAME})
 #Event.h Event.cpp Timer.h Timer.cpp
 
 include_directories(/Users/eriedl/Documents/Arduino/libraries/Timer /Users/eriedl/Documents/Arduino/libraries/afLib)
-#set(SOURCE_FILES Event.cpp Timer.cpp)
+#set(SOURCE_FILES PumpCommandQueue.h PumpCommandQueue.cpp)
 
 set(${CMAKE_PROJECT_NAME}_BOARD mega)
 set(mega.build.mcu atmega2560)
