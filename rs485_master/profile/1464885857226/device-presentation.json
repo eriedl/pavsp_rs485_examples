@@ -59,14 +59,14 @@
 					},
 					{
 						"apply": {
-							"label": "Pump On",
+							"label": "NOOP",
 							"state": "standby"
 						},
 						"match": "9"
 					},
 					{
 						"apply": {
-							"label": "Pump Off",
+							"label": "NOOP",
 							"state": "standby"
 						},
 						"match": "10"
