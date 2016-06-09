@@ -3,12 +3,12 @@
 	"createDate": 1464885857226,
 	"apeVersion": "0.9.4",
 	"originalProfileId": "",
-	"latestProfileId": "",
+	"latestProfileId": "49b989f9-5201-4eac-b7b1-13459ec0779d",
 	"presentationProfileList": [
-		"1464885857226"
+		"93af39e3-affd-49e2-b3d9-d22651396231"
 	],
 	"presentationDirMap": {
-		"1464885857226": "1464885857226"
+		"93af39e3-affd-49e2-b3d9-d22651396231": "1464885857226"
 	},
 	"debugBuild": true
 }

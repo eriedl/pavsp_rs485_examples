@@ -1,11 +1,12 @@
 {
 	"active": true,
-	"createdTimestamp": 1464885857226,
-	"deviceProfileId": "",
+	"createdTimestamp": 1465432668204,
+	"deviceProfileId": "49b989f9-5201-4eac-b7b1-13459ec0779d",
 	"friendlyName": "Default Presentation",
 	"presentationDefinition": {
 		"attributeOptions": {
 			"1": {
+				"flags": [],
 				"label": "Execute Command",
 				"valueOptions": [
 					{
@@ -71,10 +72,10 @@
 						},
 						"match": "10"
 					}
-				],
-				"flags": []
+				]
 			},
 			"2": {
+				"flags": [],
 				"label": "Set *Our* Controller Address",
 				"valueOptions": [
 					{
@@ -147,10 +148,10 @@
 						},
 						"match": "20"
 					}
-				],
-				"flags": []
+				]
 			},
 			"3": {
+				"flags": [],
 				"label": "Set Pump Address To Control",
 				"valueOptions": [
 					{
@@ -209,10 +210,10 @@
 						},
 						"match": "104"
 					}
-				],
-				"flags": []
+				]
 			},
 			"4": {
+				"flags": [],
 				"label": "Running",
 				"valueOptions": [
 					{
@@ -229,10 +230,10 @@
 						},
 						"match": "4"
 					}
-				],
-				"flags": []
+				]
 			},
 			"5": {
+				"flags": [],
 				"label": "Mode",
 				"valueOptions": [
 					{
@@ -326,10 +327,10 @@
 						},
 						"match": "12"
 					}
-				],
-				"flags": []
+				]
 			},
 			"6": {
+				"flags": [],
 				"label": "Drive State",
 				"valueOptions": [
 					{
@@ -360,77 +361,77 @@
 						},
 						"match": "3"
 					}
-				],
-				"flags": []
+				]
 			},
 			"7": {
+				"flags": [],
 				"label": "Power",
 				"rangeOptions": {
-					"minValue": "0",
-					"maxValue": "1500",
-					"stepValue": "1",
-					"unitLabel": " w",
-					"min": 0,
 					"max": 1500,
-					"step": 1
-				},
-				"flags": []
+					"maxValue": "1500",
+					"min": 0,
+					"minValue": "0",
+					"step": 1,
+					"stepValue": "1",
+					"unitLabel": " w"
+				}
 			},
 			"8": {
+				"flags": [],
 				"label": "Speed",
 				"rangeOptions": {
-					"minValue": "0",
-					"maxValue": "3000",
-					"stepValue": "1",
-					"unitLabel": "rpm",
-					"min": 0,
 					"max": 3000,
-					"step": 1
-				},
-				"flags": []
+					"maxValue": "3000",
+					"min": 0,
+					"minValue": "0",
+					"step": 1,
+					"stepValue": "1",
+					"unitLabel": "rpm"
+				}
 			},
 			"9": {
+				"flags": [],
 				"label": "Flow Rate",
 				"rangeOptions": {
-					"minValue": "0",
-					"maxValue": "127",
-					"stepValue": "1",
-					"unitLabel": " gpm",
-					"min": 0,
 					"max": 127,
-					"step": 1
-				},
-				"flags": []
+					"maxValue": "127",
+					"min": 0,
+					"minValue": "0",
+					"step": 1,
+					"stepValue": "1",
+					"unitLabel": " gpm"
+				}
 			},
 			"10": {
+				"flags": [],
 				"label": "PPC Levels",
 				"rangeOptions": {
-					"minValue": "0",
-					"maxValue": "100",
-					"stepValue": "1",
-					"unitLabel": " %",
-					"min": 0,
 					"max": 100,
-					"step": 1
-				},
-				"flags": []
+					"maxValue": "100",
+					"min": 0,
+					"minValue": "0",
+					"step": 1,
+					"stepValue": "1",
+					"unitLabel": " %"
+				}
 			},
 			"12": {
+				"flags": [],
 				"label": "Error Code",
-				"valueOptions": null,
-				"flags": []
+				"valueOptions": null
 			},
 			"14": {
+				"flags": [],
 				"label": "Timer (min)",
-				"valueOptions": null,
-				"flags": []
+				"valueOptions": null
 			},
 			"15": {
+				"flags": [],
 				"label": "Clock",
-				"valueOptions": null,
-				"flags": []
+				"valueOptions": null
 			},
 			"16": {
+				"flags": [],
 				"label": "Pump Address",
 				"valueOptions": [
 					{
@@ -496,8 +497,7 @@
 						},
 						"match": "104"
 					}
-				],
-				"flags": []
+				]
 			}
 		},
 		"controls": [
@@ -674,6 +674,6 @@
 		],
 		"label": "Pentair Pool Pump Status Monitor"
 	},
-	"presentationId": "1464885857226",
+	"presentationId": "93af39e3-affd-49e2-b3d9-d22651396231",
 	"valid": true
 }
