@@ -41,6 +41,10 @@ COMMAND_STAGE commandStage;
 CommandQueue commandQueue;
 PumpStatus pumpStatusStruct;
 
+uint8_t pumpAddress;
+uint8_t controllerAddress;
+COMMAND lastCommand;
+
 #define STATUS_QRY_TIMEOUT  1000 * 15   // 15 seconds
 #define COMMAND_TIMEOUT     1000 * 2    // 2 second
 Timer timer1;
@@ -119,18 +123,33 @@ void setup() {
     commandStage = CMD_STAGE_IDLE;
     memset(msgBuffer, 0, sizeof(msgBuffer));
     msgBufPtr = msgBuffer;
-
-    // Initialize pump status
-    pumpStatusStruct.ctrl_mode = CTRL_MODE_LOCAL;
-    pumpStatusStruct.pumpAddr = pumpAddress;
-    pumpStatusStruct.ctlrAddr = controllerAddress;
+    lastCommand = CMD_NOOP;
 
     // Initialize serial input buffer
     memset(inputCmdBuffer, 0, sizeof(inputCmdBuffer));
     inputCmdBufPtr = inputCmdBuffer;
 
+    /*
+     * Every device on the bus has an address:
+     *      0x0f - is the broadcast address, it is used by the more sophisticated controllers as <dst>
+     *          in their system status broadcasts most likely to keep queries for system status low.
+     *      0x1x - main controllers (IntelliComII, IntelliTouch, EasyTouch ...)
+     *      0x2x - remote controllers
+     *      0x6x - pumps, 0x60 is pump 1
+     *
+     * Let's use 0x20, the first address in the remote controller space
+     */
+    pumpAddress = 0x60;
+    controllerAddress = 0x20;
+
+    // Initialize pump status
+    pumpStatusStruct.ctrl_mode = CTRL_MODE_LOCAL;
+    pumpStatusStruct.pumpAddr = pumpAddress;
+    pumpStatusStruct.running = IFLO_RUN_STOP;
+    pumpStatusStruct.mode = IFLO_MODE_FILTER;
+
     // Start a status query timer
-    statusQryTimerId = timer1.every(STATUS_QRY_TIMEOUT, queryStatusCb);
+//    statusQryTimerId = timer1.every(STATUS_QRY_TIMEOUT, queryStatusCb);
     if (ISDEBUG) Serial.println("statusQryTimerId: " + String(statusQryTimerId));
 #endif
 }
@@ -231,10 +250,12 @@ void loop() {
         if (ISDEBUG) Serial.println("Message found: " + String(msgFound));
 
         if (msgFound == true) {
-            const CommandStruct *lastCommand = commandQueue.Peek();
+            const CommandStruct *commandStructPtr = commandQueue.Peek();
             uint8_t *relMsgPtr = &msgBuffer[msgStartIdx];
-            // Reset the buffer and bail if the message was not for us
-            if (relMsgPtr[MSG_DST_IDX] != controllerAddress || relMsgPtr[MSG_SRC_IDX] != pumpAddress) {
+            // Reset the buffer and bail if the message was not for us and it is not a broadcast
+            if (
+//                    (showBroadcasts == true && relMsgPtr[MSG_DST_IDX] != BROADCAST_ADDRESS) &&
+                    (relMsgPtr[MSG_DST_IDX] != controllerAddress || relMsgPtr[MSG_SRC_IDX] != pumpAddress)) {
                 if (ISDEBUG) Serial.println("Message not for us SRC: " + String(relMsgPtr[MSG_DST_IDX], HEX) + " DST: " + String(relMsgPtr[MSG_SRC_IDX], HEX));
                 memset(msgBuffer, 0, sizeof(msgBuffer));
                 msgBufPtr = msgBuffer;
@@ -243,16 +264,16 @@ void loop() {
             }
 
             // Response is not for our last command
-            if (relMsgPtr[MSG_CFI_IDX] != lastCommand->command[MSG_CFI_IDX]) {
+            if (relMsgPtr[MSG_CFI_IDX] != commandStructPtr->command[MSG_CFI_IDX]) {
                 if (ISDEBUG) Serial.println("Message is not a confirmation of our last command: SENT: "
-                                            + String(lastCommand->command[MSG_CFI_IDX], HEX) + " RCVD: " + String(relMsgPtr[MSG_CFI_IDX], HEX));
+                                            + String(commandStructPtr->command[MSG_CFI_IDX], HEX) + " RCVD: " + String(relMsgPtr[MSG_CFI_IDX], HEX));
                 reset();
 
                 return;
             }
 
             // Response should also contain the last command value, unless it was a status request
-            if (lastCommand->command[MSG_CFI_IDX] == IFLO_CMD_STAT) {
+            if (commandStructPtr->command[MSG_CFI_IDX] == IFLO_CMD_STAT) {
                 // TODO: Queue attribute updates
                 figureOutChangedAttributes(relMsgPtr);
             } else {
@@ -260,10 +281,10 @@ void loop() {
                     uint8_t lCmdVal = 0x00;
 
                     // Register writes echo only the value!
-                    if (lastCommand->command[MSG_CFI_IDX] == IFLO_CMD_REG) {
-                        lCmdVal = lastCommand->command[i + sizeof(IFLO_REG_EPRG)];
+                    if (commandStructPtr->command[MSG_CFI_IDX] == IFLO_CMD_REG) {
+                        lCmdVal = commandStructPtr->command[i + sizeof(IFLO_REG_EPRG)];
                     } else {
-                        lCmdVal = lastCommand->command[i];
+                        lCmdVal = commandStructPtr->command[i];
                     }
 
                     if (relMsgPtr[i] != lCmdVal) {
@@ -276,7 +297,7 @@ void loop() {
                 }
             }
 
-            Serial.println("Last command confirmed");
+            if (ISDEBUG) Serial.println("Last command confirmed");
 
             // Reset the receiving buffer and dispose of the last command
             memset(msgBuffer, 0, sizeof(msgBuffer));
@@ -292,6 +313,12 @@ void loop() {
                 commandStage = CMD_STAGE_SEND;
             } else {
                 commandStage = CMD_STAGE_IDLE;
+                Serial.println("lastCommand: " + String(lastCommand));
+                // Reset the Command attribute to previous command now that the chain has completed
+                if (lastCommand >= CMD_RUN_PROG_1 && lastCommand <= CMD_RUN_PROG_4) {
+                    Serial.println("resetting lastCommand: " + String(lastCommand));
+                    aflib->setAttribute8(AF_PUMP_COMMAND, lastCommand);
+                }
             }
         }
     }
@@ -320,6 +347,8 @@ void loop() {
 void queuePumpInstruction(const uint8_t *instruction) {
     CommandStruct *commandStruct;
 
+    Serial.println("Queueing pump instruction: " + String(*instruction));
+
     if (commandStage == CMD_STAGE_IDLE && *instruction > CMD_NOOP) {
         // Fill the command queue
         //1. Set the pump into remote control mode, if it's not in remote control mode yet
@@ -333,54 +362,66 @@ void queuePumpInstruction(const uint8_t *instruction) {
                 ISDEBUG = (ISDEBUG == true ? false : true);
                 Serial.println("Command: Set ISDEBUG to " + String(ISDEBUG));
                 return;
-//            case CMD_ALL_OFF:
-//                Serial.println("Command: Turning external programs off");
-//                commandStruct = buildCommandStruct(cmdArrExtProgOff, sizeof(cmdArrExtProgOff));
-//                commandQueue.Enqueue(commandStruct);
-//                break;
+            case CMD_ALL_OFF:
+                Serial.println("Command: Turning external programs off");
+                commandStruct = buildCommandStruct(cmdArrExtProgOff, sizeof(cmdArrExtProgOff));
+                commandQueue.Enqueue(commandStruct);
+                break;
             case CMD_RUN_PROG_1:
                 Serial.println("Command: Running external program 1");
-                commandStruct = buildCommandStruct(cmdArrSetSpeed1, sizeof(cmdArrSetSpeed1));
+                commandStruct = buildCommandStruct(cmdArrRunExtProg1, sizeof(cmdArrRunExtProg1));
                 commandQueue.Enqueue(commandStruct);
 
+                // TODO: Verify that we have to send the RUN command everytime we change the program
                 // Queue the start command, if the pump is not running yet
-                if (pumpStatusStruct.mode == IFLO_RUN_STOP) {
+                if (pumpStatusStruct.running == IFLO_RUN_STOP) {
                     commandStruct = buildCommandStruct(cmdArrStartPump, sizeof(cmdArrStartPump));
                     commandQueue.Enqueue(commandStruct);
                 }
+
+                lastCommand = CMD_RUN_PROG_1;
                 break;
             case CMD_RUN_PROG_2:
                 Serial.println("Command: Running external program 2");
-                commandStruct = buildCommandStruct(cmdArrSetSpeed2, sizeof(cmdArrSetSpeed2));
+                commandStruct = buildCommandStruct(cmdArrRunExtProg2, sizeof(cmdArrRunExtProg2));
                 commandQueue.Enqueue(commandStruct);
 
+                // TODO: Verify that we have to send the RUN command everytime we change the program
                 // Queue the start command, if the pump is not running yet
-                if (pumpStatusStruct.mode == IFLO_RUN_STOP) {
+                if (pumpStatusStruct.running == IFLO_RUN_STOP) {
                     commandStruct = buildCommandStruct(cmdArrStartPump, sizeof(cmdArrStartPump));
                     commandQueue.Enqueue(commandStruct);
                 }
+
+                lastCommand = CMD_RUN_PROG_2;
                 break;
             case CMD_RUN_PROG_3:
                 Serial.println("Command: Running external program 3");
-                commandStruct = buildCommandStruct(cmdArrSetSpeed3, sizeof(cmdArrSetSpeed3));
+                commandStruct = buildCommandStruct(cmdArrRunExtProg3, sizeof(cmdArrRunExtProg3));
                 commandQueue.Enqueue(commandStruct);
 
+                // TODO: Verify that we have to send the RUN command everytime we change the program
                 // Queue the start command, if the pump is not running yet
-                if (pumpStatusStruct.mode == IFLO_RUN_STOP) {
+                if (pumpStatusStruct.running == IFLO_RUN_STOP) {
                     commandStruct = buildCommandStruct(cmdArrStartPump, sizeof(cmdArrStartPump));
                     commandQueue.Enqueue(commandStruct);
                 }
+
+                lastCommand = CMD_RUN_PROG_3;
                 break;
             case CMD_RUN_PROG_4:
                 Serial.println("Command: Running external program 4");
-                commandStruct = buildCommandStruct(cmdArrSetSpeed4, sizeof(cmdArrSetSpeed4));
+                commandStruct = buildCommandStruct(cmdArrRunExtProg4, sizeof(cmdArrRunExtProg4));
                 commandQueue.Enqueue(commandStruct);
 
+                // TODO: Verify that we have to send the RUN command everytime we change the program
                 // Queue the start command, if the pump is not running yet
-                if (pumpStatusStruct.mode == IFLO_RUN_STOP) {
+                if (pumpStatusStruct.running == IFLO_RUN_STOP) {
                     commandStruct = buildCommandStruct(cmdArrStartPump, sizeof(cmdArrStartPump));
                     commandQueue.Enqueue(commandStruct);
                 }
+
+                lastCommand = CMD_RUN_PROG_4;
                 break;
             case CMD_STATUS:
                 Serial.println("Command: Querying pump status");
@@ -404,11 +445,11 @@ void queuePumpInstruction(const uint8_t *instruction) {
 //                commandStruct = buildCommandStruct(cmdArrStartPump, sizeof(cmdArrStartPump));
 //                commandQueue.Enqueue(commandStruct);
 //                break;
-//            case CMD_PUMP_OFF:
-//                Serial.println("Command: Turning pump off");
-//                commandStruct = buildCommandStruct(cmdArrStopPump, sizeof(cmdArrStopPump));
-//                commandQueue.Enqueue(commandStruct);
-//                break;
+            case CMD_PUMP_OFF:
+                Serial.println("Command: Turning pump off");
+                commandStruct = buildCommandStruct(cmdArrStopPump, sizeof(cmdArrStopPump));
+                commandQueue.Enqueue(commandStruct);
+                break;
             default:
                 Serial.print("What? Resetting....");
                 reset();
@@ -424,6 +465,8 @@ void queuePumpInstruction(const uint8_t *instruction) {
 
         commandStage = CMD_STAGE_SEND;
     }
+
+    Serial.println("queuePumpInstructions lastCommand: " + String(lastCommand));
 }
 
 CommandStruct *buildCommandStruct(uint8_t *command, size_t size) {
@@ -438,13 +481,17 @@ CommandStruct *buildCommandStruct(uint8_t *command, size_t size) {
     for (int i = 0; i < size; ++i) {
         commandStruct->command[i] = command[i];
 
-        if (i >= MSG_BGN_IDX && i < size - 2) {
-            chkSum += commandStruct->command[i]; // Calculate the checksum
+        if (i == MSG_DST_IDX) {
+            commandStruct->command[i] = pumpAddress;
         } else if (i == MSG_SRC_IDX) {
             commandStruct->command[i] = controllerAddress;
-        } else if (i == MSG_DST_IDX) {
-            commandStruct->command[i] = pumpAddress;
-        } else if (i == size - 2) {
+        }
+
+        if (i >= MSG_BGN_IDX && i < size - 2) {
+            chkSum += commandStruct->command[i]; // Calculate the checksum
+        }
+
+        if (i == size - 2) {
             commandStruct->command[i] = chkSum >> 8; // Set checksum high byte
         } else if (i == size - 1) {
             commandStruct->command[i] = chkSum & 0xFF; // Set checksum low byte
@@ -522,6 +569,15 @@ boolean findPAMessage(const uint8_t *data, const int len, int *msgStartIdx, int 
 void figureOutChangedAttributes(const uint8_t *statusMsg) {
     String statOutput = "";
     if (ISDEBUG) statOutput += "Pump status: \n";
+
+    if (pumpAddress != pumpStatusStruct.pumpAddr) {
+        pumpStatusStruct.pumpAddr = pumpAddress;
+#if defined(AFLIB_IN_USE)
+        if (aflib->setAttribute8(AF_STATUS__CURRENT_PUMP_ADDRESS, pumpStatusStruct.pumpAddr) != afSUCCESS) {
+            if (ISDEBUG) Serial.println("Couldn't set current pump address attribute");
+        }
+#endif
+    }
 
     if (statusMsg[STAT_RUN_IDX] != pumpStatusStruct.running) {
         pumpStatusStruct.running = statusMsg[STAT_RUN_IDX];
@@ -665,6 +721,7 @@ void reset() {
     commandQueue.Clear();
     commandStage = CMD_STAGE_IDLE;
     commandTtlTimerId = -1;
+    lastCommand = CMD_NOOP;
 }
 
 /*
@@ -707,9 +764,10 @@ void ISRWrapper() {
  * This is called when the service changes one of our attributes.
  */
 void onAttrSet(const uint8_t requestId, const uint16_t attributeId, const uint16_t valueLen, const uint8_t *value) {
+    Serial.println("Got attribute update: " + String(attributeId) + ", " + String(*value));
+
     switch (attributeId) {
-        // This MCU attribute tells us whether we should be blinking.
-        case AF_COMMAND:
+        case AF_PUMP_COMMAND:
             queuePumpInstruction(value);
             break;
         case AF_SET_PUMP_ADDRESS:
@@ -719,6 +777,7 @@ void onAttrSet(const uint8_t requestId, const uint16_t attributeId, const uint16
             controllerAddress = *value;
             break;
         default:
+            Serial.println("Attribute ID not handled: " + String(attributeId));
             break;
     }
 

@@ -1,7 +1,7 @@
 {
 	"active": true,
-	"createdTimestamp": 1465489044973,
-	"deviceProfileId": "ffb1f504-b162-4dde-8bc7-f77461c30cfa",
+	"createdTimestamp": 1465495905112,
+	"deviceProfileId": "eb7d755d-cea4-41f6-a1d9-4000a04b4212",
 	"friendlyName": "Default Presentation",
 	"presentationDefinition": {
 		"attributeOptions": {
@@ -11,28 +11,35 @@
 				"valueOptions": [
 					{
 						"apply": {
-							"label": "Run Speed 1",
+							"label": "All Prg. Off",
+							"state": "standby"
+						},
+						"match": "1"
+					},
+					{
+						"apply": {
+							"label": "Prog. 1",
 							"state": "standby"
 						},
 						"match": "2"
 					},
 					{
 						"apply": {
-							"label": "Run Speed 2",
+							"label": "Prog. 2",
 							"state": "standby"
 						},
 						"match": "3"
 					},
 					{
 						"apply": {
-							"label": "Run Speed 3",
+							"label": "Prog. 3",
 							"state": "standby"
 						},
 						"match": "4"
 					},
 					{
 						"apply": {
-							"label": "Run Speed 4",
+							"label": "Prog. 4",
 							"state": "standby"
 						},
 						"match": "5"
@@ -46,28 +53,21 @@
 					},
 					{
 						"apply": {
-							"label": "Set Control Remote",
+							"label": "Remote Control",
 							"state": "standby"
 						},
 						"match": "7"
 					},
 					{
 						"apply": {
-							"label": "Set Control Local",
+							"label": "Local Control",
 							"state": "standby"
 						},
 						"match": "8"
 					},
 					{
 						"apply": {
-							"label": "NOOP",
-							"state": "standby"
-						},
-						"match": "9"
-					},
-					{
-						"apply": {
-							"label": "NOOP",
+							"label": "Pump Off",
 							"state": "standby"
 						},
 						"match": "10"
@@ -238,7 +238,7 @@
 				"valueOptions": [
 					{
 						"apply": {
-							"label": "Filtern (0x00)",
+							"label": "Filter (0x00)",
 							"state": "standby"
 						},
 						"match": "0"
@@ -648,9 +648,9 @@
 			},
 			{
 				"controls": [
+					14,
 					13,
-					11,
-					14
+					11
 				],
 				"gauge": {
 					"background": {
@@ -672,8 +672,8 @@
 				"label": "C & C"
 			}
 		],
-		"label": "Pentair Pool Pump Status Monitor"
+		"label": "Pentair Pump Status Monitor"
 	},
-	"presentationId": "8a51d10d-a7d0-4750-9b64-1f8b4d271c45",
+	"presentationId": "6203ce7e-438a-43fa-90c0-7c6a4f61887f",
 	"valid": true
 }

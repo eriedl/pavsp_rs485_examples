@@ -65,19 +65,6 @@
 //endregion Pump commands and instructions
 
 //region Pump message structure related stuff like indexes, constants, etc.
-/*
-   Every device on the bus has an address:
-       0x0f - is the broadcast address, it is used by the more sophisticated controllers as <dst>
-              in their system status broadcasts most likely to keep queries for system status low.
-       0x1x - main controllers (IntelliComII, IntelliTouch, EasyTouch ...)
-       0x2x - remote controllers
-       0x6x - pumps, 0x60 is pump 1
-
-   Let's use 0x20, the first address in the remote controller space
- */
-uint8_t pumpAddress         = 0x60;
-uint8_t controllerAddress   = 0x20;
-
 #define PREAMBLE_LEN        0x04
 const uint8_t PREAMBLE[] = { 0xFF, 0x00, 0xFF, 0xA5 };
 
@@ -106,21 +93,21 @@ const uint8_t PREAMBLE[] = { 0xFF, 0x00, 0xFF, 0xA5 };
 #define STAT_CLK_HOUR_IDX   0x16
 #define STAT_CLK_MIN_IDX    0x17
 
-//                                             P R E A M B L E                     VER   DST          SRC                CFI               LEN   DAT               CHB   CLB (Check Sum is set when sending command, depends on addresses used)
-uint8_t cmdArrCtrlRemote[]  = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, pumpAddress, controllerAddress, IFLO_CMD_CTRL,    0x01, IFLO_CTRL_REMOTE, 0x00, 0x00};
-uint8_t cmdArrCtrlLocal[]   = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, pumpAddress, controllerAddress, IFLO_CMD_CTRL,    0x01, IFLO_CTRL_LOCAL,  0x00, 0x00};
-uint8_t cmdArrGetStatus[]   = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, pumpAddress, controllerAddress, IFLO_CMD_STAT,    0x00,                        0x00, 0x00};
-uint8_t cmdArrExtProgOff[]  = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, pumpAddress, controllerAddress, IFLO_CMD_REG,     0x04, (IFLO_REG_EPRG >> 8), (IFLO_REG_EPRG & 0xFF), (IFLO_EPRG_OFF >> 8), (IFLO_EPRG_OFF & 0xFF), 0x00, 0x00};
-uint8_t cmdArrRunExtProg1[] = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, pumpAddress, controllerAddress, IFLO_CMD_REG,     0x04, (IFLO_REG_EPRG >> 8), (IFLO_REG_EPRG & 0xFF), (IFLO_EPRG_P1 >> 8), (IFLO_EPRG_P1 & 0xFF), 0x00, 0x00};
-uint8_t cmdArrRunExtProg2[] = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, pumpAddress, controllerAddress, IFLO_CMD_REG,     0x04, (IFLO_REG_EPRG >> 8), (IFLO_REG_EPRG & 0xFF), (IFLO_EPRG_P2 >> 8), (IFLO_EPRG_P2 & 0xFF), 0x00, 0x00};
-uint8_t cmdArrRunExtProg3[] = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, pumpAddress, controllerAddress, IFLO_CMD_REG,     0x04, (IFLO_REG_EPRG >> 8), (IFLO_REG_EPRG & 0xFF), (IFLO_EPRG_P3 >> 8), (IFLO_EPRG_P3 & 0xFF), 0x00, 0x00};
-uint8_t cmdArrRunExtProg4[] = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, pumpAddress, controllerAddress, IFLO_CMD_REG,     0x04, (IFLO_REG_EPRG >> 8), (IFLO_REG_EPRG & 0xFF), (IFLO_EPRG_P4 >> 8), (IFLO_EPRG_P4 & 0xFF), 0x00, 0x00};
-uint8_t cmdArrSetSpeed1[]   = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, pumpAddress, controllerAddress, IFLO_CMD_MODE,    0x01, IFLO_MODE_EXT_P1, 0x00, 0x00};
-uint8_t cmdArrSetSpeed2[]   = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, pumpAddress, controllerAddress, IFLO_CMD_MODE,    0x01, IFLO_MODE_EXT_P2, 0x00, 0x00};
-uint8_t cmdArrSetSpeed3[]   = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, pumpAddress, controllerAddress, IFLO_CMD_MODE,    0x01, IFLO_MODE_EXT_P3, 0x00, 0x00};
-uint8_t cmdArrSetSpeed4[]   = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, pumpAddress, controllerAddress, IFLO_CMD_MODE,    0x01, IFLO_MODE_EXT_P4, 0x00, 0x00};
-uint8_t cmdArrStartPump[]   = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, pumpAddress, controllerAddress, IFLO_CMD_RUN,     0x01, IFLO_RUN_STRT,    0x00, 0x00};
-uint8_t cmdArrStopPump[]    = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, pumpAddress, controllerAddress, IFLO_CMD_RUN,     0x01, IFLO_RUN_STOP,    0x00, 0x00};
+//                                             P R E A M B L E                     VER   DST   SRC   CFI               LEN   DAT               CHB   CLB (Check Sum is set when sending command, depends on addresses used)
+uint8_t cmdArrCtrlRemote[]  = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, 0x00, 0x00, IFLO_CMD_CTRL,    0x01, IFLO_CTRL_REMOTE, 0x00, 0x00};
+uint8_t cmdArrCtrlLocal[]   = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, 0x00, 0x00, IFLO_CMD_CTRL,    0x01, IFLO_CTRL_LOCAL,  0x00, 0x00};
+uint8_t cmdArrGetStatus[]   = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, 0x00, 0x00, IFLO_CMD_STAT,    0x00,                        0x00, 0x00};
+uint8_t cmdArrExtProgOff[]  = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, 0x00, 0x00, IFLO_CMD_REG,     0x04, (IFLO_REG_EPRG >> 8), (IFLO_REG_EPRG & 0xFF), (IFLO_EPRG_OFF >> 8), (IFLO_EPRG_OFF & 0xFF), 0x00, 0x00};
+uint8_t cmdArrRunExtProg1[] = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, 0x00, 0x00, IFLO_CMD_REG,     0x04, (IFLO_REG_EPRG >> 8), (IFLO_REG_EPRG & 0xFF), (IFLO_EPRG_P1 >> 8), (IFLO_EPRG_P1 & 0xFF), 0x00, 0x00};
+uint8_t cmdArrRunExtProg2[] = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, 0x00, 0x00, IFLO_CMD_REG,     0x04, (IFLO_REG_EPRG >> 8), (IFLO_REG_EPRG & 0xFF), (IFLO_EPRG_P2 >> 8), (IFLO_EPRG_P2 & 0xFF), 0x00, 0x00};
+uint8_t cmdArrRunExtProg3[] = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, 0x00, 0x00, IFLO_CMD_REG,     0x04, (IFLO_REG_EPRG >> 8), (IFLO_REG_EPRG & 0xFF), (IFLO_EPRG_P3 >> 8), (IFLO_EPRG_P3 & 0xFF), 0x00, 0x00};
+uint8_t cmdArrRunExtProg4[] = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, 0x00, 0x00, IFLO_CMD_REG,     0x04, (IFLO_REG_EPRG >> 8), (IFLO_REG_EPRG & 0xFF), (IFLO_EPRG_P4 >> 8), (IFLO_EPRG_P4 & 0xFF), 0x00, 0x00};
+uint8_t cmdArrSetSpeed1[]   = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, 0x00, 0x00, IFLO_CMD_MODE,    0x01, IFLO_MODE_EXT_P1, 0x00, 0x00};
+uint8_t cmdArrSetSpeed2[]   = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, 0x00, 0x00, IFLO_CMD_MODE,    0x01, IFLO_MODE_EXT_P2, 0x00, 0x00};
+uint8_t cmdArrSetSpeed3[]   = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, 0x00, 0x00, IFLO_CMD_MODE,    0x01, IFLO_MODE_EXT_P3, 0x00, 0x00};
+uint8_t cmdArrSetSpeed4[]   = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, 0x00, 0x00, IFLO_CMD_MODE,    0x01, IFLO_MODE_EXT_P4, 0x00, 0x00};
+uint8_t cmdArrStartPump[]   = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, 0x00, 0x00, IFLO_CMD_RUN,     0x01, IFLO_RUN_STRT,    0x00, 0x00};
+uint8_t cmdArrStopPump[]    = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, 0x00, 0x00, IFLO_CMD_RUN,     0x01, IFLO_RUN_STOP,    0x00, 0x00};
 //endregion Pump message structure related stuff like indexes, constants, etc.
 
 //region afLib stuff
@@ -173,17 +160,17 @@ enum COMMAND_STAGE {
 };
 
 enum COMMAND {
-    CMD_NOOP,
-    CMD_ALL_OFF,
-    CMD_RUN_PROG_1,
-    CMD_RUN_PROG_2,
-    CMD_RUN_PROG_3,
-    CMD_RUN_PROG_4,
-    CMD_STATUS,
-    CMD_CTRL_REMOTE,
-    CMD_CTRL_LOCAL,
-    CMD_PUMP_ON,
-    CMD_PUMP_OFF
+    CMD_NOOP,           //0
+    CMD_ALL_OFF,        //1
+    CMD_RUN_PROG_1,     //2
+    CMD_RUN_PROG_2,     //3
+    CMD_RUN_PROG_3,     //4
+    CMD_RUN_PROG_4,     //5
+    CMD_STATUS,         //6
+    CMD_CTRL_REMOTE,    //7
+    CMD_CTRL_LOCAL,     //8
+    CMD_PUMP_ON,        //9
+    CMD_PUMP_OFF        //10
 };
 
 enum CONTROL_MODE {
@@ -194,7 +181,6 @@ enum CONTROL_MODE {
 struct PumpStatus {
     uint8_t ctrl_mode;
     uint8_t pumpAddr;
-    uint8_t ctlrAddr;
     uint8_t running;
     uint8_t mode;
     uint8_t drive_state;

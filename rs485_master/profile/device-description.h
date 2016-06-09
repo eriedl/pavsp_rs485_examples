@@ -1,6 +1,6 @@
 /*
  * Afero Device Profile header file
- * Device Description:		c27540c5-0ee9-4459-a998-0a3b712ba4b0
+ * Device Description:		
  * Schema Version:	2
  */
 
@@ -15,10 +15,10 @@
 #define ATTRIBUTE_TYPE_FLOAT32                                         10
 
 //region Service ID 1
-// Attribute Command
-#define AF_COMMAND                                                      1
-#define AF_COMMAND_SZ                                                   2
-#define AF_COMMAND_TYPE                             ATTRIBUTE_TYPE_SINT16
+// Attribute Pump Command
+#define AF_PUMP_COMMAND                                                 1
+#define AF_PUMP_COMMAND_SZ                                              2
+#define AF_PUMP_COMMAND_TYPE                        ATTRIBUTE_TYPE_SINT16
 
 // Attribute Set Controller Address
 #define AF_SET_CONTROLLER_ADDRESS                                       2
