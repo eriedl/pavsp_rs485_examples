@@ -1,5 +1,5 @@
 {
-	"deviceDescriptionId": "b0f58981-6146-4da5-969c-84b86e6e7964",
+	"deviceDescriptionId": "c27540c5-0ee9-4459-a998-0a3b712ba4b0",
 	"partnerId": "db95515f-dc4c-4bf1-aefc-7dfb22ca9519",
 	"schemaVersion": 2,
 	"services": [
@@ -342,5 +342,5 @@
 			]
 		}
 	],
-	"createdTimestamp": 1465432666121
+	"createdTimestamp": 1465489042578
 }

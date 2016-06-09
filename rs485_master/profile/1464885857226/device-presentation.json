@@ -1,7 +1,7 @@
 {
 	"active": true,
-	"createdTimestamp": 1465432668204,
-	"deviceProfileId": "49b989f9-5201-4eac-b7b1-13459ec0779d",
+	"createdTimestamp": 1465489044973,
+	"deviceProfileId": "ffb1f504-b162-4dde-8bc7-f77461c30cfa",
 	"friendlyName": "Default Presentation",
 	"presentationDefinition": {
 		"attributeOptions": {
@@ -674,6 +674,6 @@
 		],
 		"label": "Pentair Pool Pump Status Monitor"
 	},
-	"presentationId": "93af39e3-affd-49e2-b3d9-d22651396231",
+	"presentationId": "8a51d10d-a7d0-4750-9b64-1f8b4d271c45",
 	"valid": true
 }

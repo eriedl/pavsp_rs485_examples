@@ -1,11 +1,11 @@
 {
-	"deviceTypeId": "ff9a47f1-a207-4e5a-a0c5-d4cb43ee3160",
-	"partnerId": "db95515f-dc4c-4bf1-aefc-7dfb22ca9519",
-	"name": "Pentair Pool Pump Status Monitor",
-	"description": "A simple status monitor for Pentair pool pumps",
 	"createdTimestamp": 1465432665970,
-	"updatedTimestamp": 1465432665970,
-	"virtual": false,
+	"description": "A simple status monitor for Pentair pool pumps",
 	"deviceTags": [],
-	"disconnectNotificationLevel": "LOW"
+	"deviceTypeId": "ff9a47f1-a207-4e5a-a0c5-d4cb43ee3160",
+	"disconnectNotificationLevel": "LOW",
+	"name": "Pentair Pool Pump Status Monitor",
+	"partnerId": "",
+	"updatedTimestamp": 1465432665970,
+	"virtual": false
 }
