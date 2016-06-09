@@ -149,7 +149,7 @@ void setup() {
     pumpStatusStruct.mode = IFLO_MODE_FILTER;
 
     // Start a status query timer
-//    statusQryTimerId = timer1.every(STATUS_QRY_TIMEOUT, queryStatusCb);
+    statusQryTimerId = timer1.every(STATUS_QRY_TIMEOUT, queryStatusCb);
     if (ISDEBUG) Serial.println("statusQryTimerId: " + String(statusQryTimerId));
 #endif
 }
@@ -366,6 +366,7 @@ void queuePumpInstruction(const uint8_t *instruction) {
                 Serial.println("Command: Turning external programs off");
                 commandStruct = buildCommandStruct(cmdArrExtProgOff, sizeof(cmdArrExtProgOff));
                 commandQueue.Enqueue(commandStruct);
+                lastCommand = CMD_ALL_OFF;
                 break;
             case CMD_RUN_PROG_1:
                 Serial.println("Command: Running external program 1");
@@ -449,6 +450,7 @@ void queuePumpInstruction(const uint8_t *instruction) {
                 Serial.println("Command: Turning pump off");
                 commandStruct = buildCommandStruct(cmdArrStopPump, sizeof(cmdArrStopPump));
                 commandQueue.Enqueue(commandStruct);
+                lastCommand = CMD_PUMP_OFF;
                 break;
             default:
                 Serial.print("What? Resetting....");
