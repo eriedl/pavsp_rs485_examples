@@ -149,7 +149,7 @@ void setup() {
     pumpStatusStruct.mode = IFLO_MODE_FILTER;
 
     // Start a status query timer
-//    statusQryTimerId = timer1.every(STATUS_QRY_TIMEOUT, queryStatusCb);
+    statusQryTimerId = timer1.every(STATUS_QRY_TIMEOUT, queryStatusCb);
     if (ISDEBUG) Serial.println("statusQryTimerId: " + String(statusQryTimerId));
 #endif
 }
@@ -165,7 +165,19 @@ void loop() {
             // Line ending indicates end of command
             if (iRcv == 0x0A || iRcv == 0x0D) {
                 strSerialCommand = String((char *)inputCmdBuffer);
-                uint8_t c = strSerialCommand.toInt();
+                uint8_t  c = 0;
+                int sepIdx = strSerialCommand.indexOf(':');
+
+                if (sepIdx > -1) {
+                    c = strSerialCommand.substring(0, sepIdx).toInt();
+                    Serial.println(c);
+                    uint8_t val = strSerialCommand.substring(sepIdx + 1).toInt();
+                    cmdArrCustom5[MSG_CFI_IDX + 2] = val;
+                    Serial.println(val);
+                } else {
+                    c = strSerialCommand.toInt();
+                }
+
                 queuePumpInstruction(&c);
 
                 memset(inputCmdBuffer, 0, sizeof(inputCmdBuffer));
@@ -174,10 +186,7 @@ void loop() {
                 break;
             }
 
-            char c = (char)iRcv;
-            if (isDigit(c) == true) {
-                *inputCmdBufPtr++ = c;
-            }
+            *inputCmdBufPtr++ = iRcv;
 
             // Reset the buffer
             if ((inputCmdBufPtr - inputCmdBuffer) > MAX_INPUT_LEN) { // Pointer arithmetic usually gives you the index, but we increment the pointer after every assignment, so we get now the length
@@ -412,11 +421,47 @@ void queuePumpInstruction(const uint8_t *instruction) {
                 commandQueue.Enqueue(commandStruct);
                 pumpStatusStruct.ctrl_mode = CTRL_MODE_LOCAL;
                 break;
+            case CMD_PUMP_ON:
+                Serial.println("Command: Turning pump on");
+                commandStruct = buildCommandStruct(cmdArrStartPump, sizeof(cmdArrStartPump));
+                commandQueue.Enqueue(commandStruct);
+                lastCommand = CMD_PUMP_OFF;
+                break;
             case CMD_PUMP_OFF:
                 Serial.println("Command: Turning pump off");
                 commandStruct = buildCommandStruct(cmdArrStopPump, sizeof(cmdArrStopPump));
                 commandQueue.Enqueue(commandStruct);
                 lastCommand = CMD_PUMP_OFF;
+                break;
+            case CMD_SPEED_1:
+                Serial.println("Command: Running speed 1");
+                commandStruct = buildCommandStruct(cmdArrSetSpeed1, sizeof(cmdArrSetSpeed1));
+                commandQueue.Enqueue(commandStruct);
+                lastCommand = CMD_SPEED_1;
+                break;
+            case CMD_SPEED_2:
+                Serial.println("Command: Running speed 2");
+                commandStruct = buildCommandStruct(cmdArrSetSpeed2, sizeof(cmdArrSetSpeed2));
+                commandQueue.Enqueue(commandStruct);
+                lastCommand = CMD_SPEED_2;
+                break;
+            case CMD_SPEED_3:
+                Serial.println("Command: Running speed 3");
+                commandStruct = buildCommandStruct(cmdArrSetSpeed3, sizeof(cmdArrSetSpeed3));
+                commandQueue.Enqueue(commandStruct);
+                lastCommand = CMD_SPEED_3;
+                break;
+            case CMD_SPEED_4:
+                Serial.println("Command: Running speed 4");
+                commandStruct = buildCommandStruct(cmdArrSetSpeed4, sizeof(cmdArrSetSpeed4));
+                commandQueue.Enqueue(commandStruct);
+                lastCommand = CMD_SPEED_4;
+                break;
+            case CMD_CUSTOM5:
+                Serial.println("Command: Running custom command 5");
+                commandStruct = buildCommandStruct(cmdArrCustom5, sizeof(cmdArrCustom5));
+                commandQueue.Enqueue(commandStruct);
+                lastCommand = CMD_CUSTOM5;
                 break;
             default:
                 Serial.print("What? Resetting....");
@@ -435,6 +480,14 @@ void queuePumpInstruction(const uint8_t *instruction) {
             // Schedule the timer to repeat the ext program command only if it's not running yet
             if (extProgramTimerId == -1) {
                 extProgramTimerId = timer1.every(EXT_PROG_RPT_INTVAL, repeatExtProgramCmdCb);
+            }
+        }
+
+        // Avoid code duplication
+        if (lastCommand >= CMD_SPEED_1 && lastCommand <= CMD_SPEED_4) {
+            if (pumpStatusStruct.running == IFLO_RUN_STOP) {
+                commandStruct = buildCommandStruct(cmdArrStartPump, sizeof(cmdArrStartPump));
+                commandQueue.Enqueue(commandStruct);
             }
         }
 

@@ -1,7 +1,7 @@
 {
 	"active": true,
-	"createdTimestamp": 1465520959069,
-	"deviceProfileId": "882cd6d5-2b8f-4930-814e-06b3c692a249",
+	"createdTimestamp": 1465525325296,
+	"deviceProfileId": "775c7bd0-1295-4a88-82d6-92f2cd12eb59",
 	"friendlyName": "Default Presentation",
 	"presentationDefinition": {
 		"attributeOptions": {
@@ -11,10 +11,45 @@
 				"valueOptions": [
 					{
 						"apply": {
-							"label": "All Prg. Off",
+							"label": "Speed 1",
 							"state": "standby"
 						},
-						"match": "1"
+						"match": "11"
+					},
+					{
+						"apply": {
+							"label": "Speed 2",
+							"state": "standby"
+						},
+						"match": "12"
+					},
+					{
+						"apply": {
+							"label": "Speed 3",
+							"state": "standby"
+						},
+						"match": "13"
+					},
+					{
+						"apply": {
+							"label": "Speed 4",
+							"state": "standby"
+						},
+						"match": "14"
+					},
+					{
+						"apply": {
+							"label": "Pump On",
+							"state": "standby"
+						},
+						"match": "9"
+					},
+					{
+						"apply": {
+							"label": "Pump Off",
+							"state": "standby"
+						},
+						"match": "10"
 					},
 					{
 						"apply": {
@@ -46,38 +81,24 @@
 					},
 					{
 						"apply": {
-							"label": "Status",
+							"label": "All Prg. Off",
 							"state": "standby"
 						},
-						"match": "6"
+						"match": "1"
 					},
 					{
 						"apply": {
-							"label": "Remote Control",
+							"label": "Control: Remote",
 							"state": "standby"
 						},
 						"match": "7"
 					},
 					{
 						"apply": {
-							"label": "Local Control",
+							"label": "Control: Local",
 							"state": "standby"
 						},
 						"match": "8"
-					},
-					{
-						"apply": {
-							"label": "Pump Off",
-							"state": "standby"
-						},
-						"match": "10"
-					},
-					{
-						"apply": {
-							"label": "Custom",
-							"state": "standby"
-						},
-						"match": "11"
 					}
 				]
 			},
@@ -393,7 +414,7 @@
 					"minValue": "0",
 					"step": 1,
 					"stepValue": "1",
-					"unitLabel": "rpm"
+					"unitLabel": " rpm"
 				}
 			},
 			"9": {
@@ -681,6 +702,6 @@
 		],
 		"label": "Pentair Pump Status Monitor"
 	},
-	"presentationId": "1e85c413-ef07-4ed7-b02d-cba22400b12e",
+	"presentationId": "e2027f64-a326-4d95-87e6-024dc75b2ca3",
 	"valid": true
 }

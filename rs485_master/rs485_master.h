@@ -40,10 +40,10 @@
 #define IFLO_CMD_MODE       0x05
 #define	IFLO_MODE_FILTER	0x00 /* Filter */
 #define	IFLO_MODE_MANUAL	0x01 /* Manual */
-#define	IFLO_MODE_BKWASH	0x02
-#define	IFLO_MODE______3	0x03 /* never seen */
-#define	IFLO_MODE______4	0x04 /* never seen */
-#define	IFLO_MODE______5	0x05 /* never seen */
+#define	IFLO_MODE_SPEED1	0x02 /* Display speed 1 */
+#define	IFLO_MODE_SPEED2	0x03 /* Display speed 2 */
+#define	IFLO_MODE_SPEED3	0x04 /* Display speed 3 */
+#define	IFLO_MODE_SPEED4	0x05 /* Display speed 4 */
 #define	IFLO_MODE_FEATR1	0x06 /* Feature 1 */
 #define	IFLO_MODE______7	0x07 /* never seen */
 #define	IFLO_MODE______8	0x08 /* never seen */
@@ -104,6 +104,11 @@ uint8_t cmdArrRunExtProg3[] = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3
 uint8_t cmdArrRunExtProg4[] = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, 0x00, 0x00, IFLO_CMD_REG,     0x04, (IFLO_REG_EPRG >> 8), (IFLO_REG_EPRG & 0xFF), (IFLO_EPRG_P4 >> 8), (IFLO_EPRG_P4 & 0xFF), 0x00, 0x00};
 uint8_t cmdArrStartPump[]   = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, 0x00, 0x00, IFLO_CMD_RUN,     0x01, IFLO_RUN_STRT,    0x00, 0x00};
 uint8_t cmdArrStopPump[]    = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, 0x00, 0x00, IFLO_CMD_RUN,     0x01, IFLO_RUN_STOP,    0x00, 0x00};
+uint8_t cmdArrSetSpeed1[]   = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, 0x00, 0x00, IFLO_CMD_MODE,    0x01, IFLO_MODE_SPEED1,    0x00, 0x00};
+uint8_t cmdArrSetSpeed2[]   = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, 0x00, 0x00, IFLO_CMD_MODE,    0x01, IFLO_MODE_SPEED2,    0x00, 0x00};
+uint8_t cmdArrSetSpeed3[]   = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, 0x00, 0x00, IFLO_CMD_MODE,    0x01, IFLO_MODE_SPEED3,    0x00, 0x00};
+uint8_t cmdArrSetSpeed4[]   = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, 0x00, 0x00, IFLO_CMD_MODE,    0x01, IFLO_MODE_SPEED4,    0x00, 0x00};
+uint8_t cmdArrCustom5[]     = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, 0x00, 0x00, IFLO_CMD_MODE,    0x01, 0x00, 0x00, 0x00};
 //endregion Pump message structure related stuff like indexes, constants, etc.
 
 //region afLib stuff
@@ -171,7 +176,11 @@ enum COMMAND {
     CMD_CTRL_LOCAL,     //8
     CMD_PUMP_ON,        //9
     CMD_PUMP_OFF,       //10
-    CMD_CUSTOM          //11
+    CMD_SPEED_1,          //11
+    CMD_SPEED_2,         //12
+    CMD_SPEED_3,         //13
+    CMD_SPEED_4,         //14
+    CMD_CUSTOM5,         //15
 };
 
 enum CONTROL_MODE {

@@ -1,5 +1,5 @@
 {
-	"deviceDescriptionId": "db725d13-9f9c-47eb-a9c5-c9e32b077ef5",
+	"deviceDescriptionId": "51ae4387-9766-41a1-b476-33bd1d35a878",
 	"partnerId": "db95515f-dc4c-4bf1-aefc-7dfb22ca9519",
 	"schemaVersion": 2,
 	"services": [
@@ -324,8 +324,8 @@
 					"operations": [
 						"READ"
 					],
-					"defaultValue": "e8030000180018000C00A00F",
-					"value": "e8030000180018000C00A00F",
+					"defaultValue": "fa000000180018000C00A00F",
+					"value": "fa000000180018000C00A00F",
 					"length": 12
 				},
 				{
@@ -342,5 +342,5 @@
 			]
 		}
 	],
-	"createdTimestamp": 1465520957099
+	"createdTimestamp": 1465525323370
 }
