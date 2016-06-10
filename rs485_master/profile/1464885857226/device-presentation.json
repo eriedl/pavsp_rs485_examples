@@ -1,7 +1,7 @@
 {
 	"active": true,
-	"createdTimestamp": 1465495905112,
-	"deviceProfileId": "eb7d755d-cea4-41f6-a1d9-4000a04b4212",
+	"createdTimestamp": 1465520959069,
+	"deviceProfileId": "882cd6d5-2b8f-4930-814e-06b3c692a249",
 	"friendlyName": "Default Presentation",
 	"presentationDefinition": {
 		"attributeOptions": {
@@ -71,6 +71,13 @@
 							"state": "standby"
 						},
 						"match": "10"
+					},
+					{
+						"apply": {
+							"label": "Custom",
+							"state": "standby"
+						},
+						"match": "11"
 					}
 				]
 			},
@@ -674,6 +681,6 @@
 		],
 		"label": "Pentair Pump Status Monitor"
 	},
-	"presentationId": "6203ce7e-438a-43fa-90c0-7c6a4f61887f",
+	"presentationId": "1e85c413-ef07-4ed7-b02d-cba22400b12e",
 	"valid": true
 }

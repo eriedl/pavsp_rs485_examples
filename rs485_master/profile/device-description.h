@@ -1,6 +1,6 @@
 /*
  * Afero Device Profile header file
- * Device Description:		
+ * Device Description:		db725d13-9f9c-47eb-a9c5-c9e32b077ef5
  * Schema Version:	2
  */
 

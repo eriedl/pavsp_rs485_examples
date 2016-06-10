@@ -102,10 +102,6 @@ uint8_t cmdArrRunExtProg1[] = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3
 uint8_t cmdArrRunExtProg2[] = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, 0x00, 0x00, IFLO_CMD_REG,     0x04, (IFLO_REG_EPRG >> 8), (IFLO_REG_EPRG & 0xFF), (IFLO_EPRG_P2 >> 8), (IFLO_EPRG_P2 & 0xFF), 0x00, 0x00};
 uint8_t cmdArrRunExtProg3[] = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, 0x00, 0x00, IFLO_CMD_REG,     0x04, (IFLO_REG_EPRG >> 8), (IFLO_REG_EPRG & 0xFF), (IFLO_EPRG_P3 >> 8), (IFLO_EPRG_P3 & 0xFF), 0x00, 0x00};
 uint8_t cmdArrRunExtProg4[] = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, 0x00, 0x00, IFLO_CMD_REG,     0x04, (IFLO_REG_EPRG >> 8), (IFLO_REG_EPRG & 0xFF), (IFLO_EPRG_P4 >> 8), (IFLO_EPRG_P4 & 0xFF), 0x00, 0x00};
-uint8_t cmdArrSetSpeed1[]   = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, 0x00, 0x00, IFLO_CMD_MODE,    0x01, IFLO_MODE_EXT_P1, 0x00, 0x00};
-uint8_t cmdArrSetSpeed2[]   = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, 0x00, 0x00, IFLO_CMD_MODE,    0x01, IFLO_MODE_EXT_P2, 0x00, 0x00};
-uint8_t cmdArrSetSpeed3[]   = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, 0x00, 0x00, IFLO_CMD_MODE,    0x01, IFLO_MODE_EXT_P3, 0x00, 0x00};
-uint8_t cmdArrSetSpeed4[]   = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, 0x00, 0x00, IFLO_CMD_MODE,    0x01, IFLO_MODE_EXT_P4, 0x00, 0x00};
 uint8_t cmdArrStartPump[]   = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, 0x00, 0x00, IFLO_CMD_RUN,     0x01, IFLO_RUN_STRT,    0x00, 0x00};
 uint8_t cmdArrStopPump[]    = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, 0x00, 0x00, IFLO_CMD_RUN,     0x01, IFLO_RUN_STOP,    0x00, 0x00};
 //endregion Pump message structure related stuff like indexes, constants, etc.
@@ -147,6 +143,10 @@ uint8_t cmdArrStopPump[]    = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3
 //endregion
 
 //region State machine
+#define STATUS_QRY_TIMEOUT  1000 * 15   // 15 seconds
+#define COMMAND_TIMEOUT     1000 * 2    // 2 second
+#define EXT_PROG_RPT_INTVAL 1000 * 30   // 30 seconds
+
 /* 1. Send Remote Ctrl
 // 1.1 Wait for confirmation
 // 2. Send Command
@@ -170,7 +170,8 @@ enum COMMAND {
     CMD_CTRL_REMOTE,    //7
     CMD_CTRL_LOCAL,     //8
     CMD_PUMP_ON,        //9
-    CMD_PUMP_OFF        //10
+    CMD_PUMP_OFF,       //10
+    CMD_CUSTOM          //11
 };
 
 enum CONTROL_MODE {

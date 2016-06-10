@@ -45,11 +45,10 @@ uint8_t pumpAddress;
 uint8_t controllerAddress;
 COMMAND lastCommand;
 
-#define STATUS_QRY_TIMEOUT  1000 * 15   // 15 seconds
-#define COMMAND_TIMEOUT     1000 * 2    // 2 second
 Timer timer1;
 int8_t statusQryTimerId;
 int8_t commandTtlTimerId;
+int8_t extProgramTimerId;
 //endregion State machine
 
 String strSerialCommand;
@@ -120,6 +119,7 @@ void setup() {
     timer1 = Timer();
     statusQryTimerId = -1;
     commandTtlTimerId = -1;
+    extProgramTimerId = -1;
     commandStage = CMD_STAGE_IDLE;
     memset(msgBuffer, 0, sizeof(msgBuffer));
     msgBufPtr = msgBuffer;
@@ -149,7 +149,7 @@ void setup() {
     pumpStatusStruct.mode = IFLO_MODE_FILTER;
 
     // Start a status query timer
-    statusQryTimerId = timer1.every(STATUS_QRY_TIMEOUT, queryStatusCb);
+//    statusQryTimerId = timer1.every(STATUS_QRY_TIMEOUT, queryStatusCb);
     if (ISDEBUG) Serial.println("statusQryTimerId: " + String(statusQryTimerId));
 #endif
 }
@@ -313,11 +313,14 @@ void loop() {
                 commandStage = CMD_STAGE_SEND;
             } else {
                 commandStage = CMD_STAGE_IDLE;
-                Serial.println("lastCommand: " + String(lastCommand));
+
                 // Reset the Command attribute to previous command now that the chain has completed
                 if (lastCommand >= CMD_RUN_PROG_1 && lastCommand <= CMD_RUN_PROG_4) {
-                    Serial.println("resetting lastCommand: " + String(lastCommand));
-                    aflib->setAttribute8(AF_PUMP_COMMAND, lastCommand);
+                    if (ISDEBUG) Serial.println("Running program, resetting lastCommand to program: " + String(lastCommand));
+                    if (aflib->setAttribute8(AF_PUMP_COMMAND, lastCommand) != afSUCCESS) {
+                        Serial.println("Could not update pump command attribute. Stopping program execution");
+                        reset();
+                    }
                 }
             }
         }
@@ -372,56 +375,24 @@ void queuePumpInstruction(const uint8_t *instruction) {
                 Serial.println("Command: Running external program 1");
                 commandStruct = buildCommandStruct(cmdArrRunExtProg1, sizeof(cmdArrRunExtProg1));
                 commandQueue.Enqueue(commandStruct);
-
-                // TODO: Verify that we have to send the RUN command everytime we change the program
-                // Queue the start command, if the pump is not running yet
-                if (pumpStatusStruct.running == IFLO_RUN_STOP) {
-                    commandStruct = buildCommandStruct(cmdArrStartPump, sizeof(cmdArrStartPump));
-                    commandQueue.Enqueue(commandStruct);
-                }
-
                 lastCommand = CMD_RUN_PROG_1;
                 break;
             case CMD_RUN_PROG_2:
                 Serial.println("Command: Running external program 2");
                 commandStruct = buildCommandStruct(cmdArrRunExtProg2, sizeof(cmdArrRunExtProg2));
                 commandQueue.Enqueue(commandStruct);
-
-                // TODO: Verify that we have to send the RUN command everytime we change the program
-                // Queue the start command, if the pump is not running yet
-                if (pumpStatusStruct.running == IFLO_RUN_STOP) {
-                    commandStruct = buildCommandStruct(cmdArrStartPump, sizeof(cmdArrStartPump));
-                    commandQueue.Enqueue(commandStruct);
-                }
-
                 lastCommand = CMD_RUN_PROG_2;
                 break;
             case CMD_RUN_PROG_3:
                 Serial.println("Command: Running external program 3");
                 commandStruct = buildCommandStruct(cmdArrRunExtProg3, sizeof(cmdArrRunExtProg3));
                 commandQueue.Enqueue(commandStruct);
-
-                // TODO: Verify that we have to send the RUN command everytime we change the program
-                // Queue the start command, if the pump is not running yet
-                if (pumpStatusStruct.running == IFLO_RUN_STOP) {
-                    commandStruct = buildCommandStruct(cmdArrStartPump, sizeof(cmdArrStartPump));
-                    commandQueue.Enqueue(commandStruct);
-                }
-
                 lastCommand = CMD_RUN_PROG_3;
                 break;
             case CMD_RUN_PROG_4:
                 Serial.println("Command: Running external program 4");
                 commandStruct = buildCommandStruct(cmdArrRunExtProg4, sizeof(cmdArrRunExtProg4));
                 commandQueue.Enqueue(commandStruct);
-
-                // TODO: Verify that we have to send the RUN command everytime we change the program
-                // Queue the start command, if the pump is not running yet
-                if (pumpStatusStruct.running == IFLO_RUN_STOP) {
-                    commandStruct = buildCommandStruct(cmdArrStartPump, sizeof(cmdArrStartPump));
-                    commandQueue.Enqueue(commandStruct);
-                }
-
                 lastCommand = CMD_RUN_PROG_4;
                 break;
             case CMD_STATUS:
@@ -441,11 +412,6 @@ void queuePumpInstruction(const uint8_t *instruction) {
                 commandQueue.Enqueue(commandStruct);
                 pumpStatusStruct.ctrl_mode = CTRL_MODE_LOCAL;
                 break;
-//            case CMD_PUMP_ON:
-//                Serial.println("Command: Turning pump on");
-//                commandStruct = buildCommandStruct(cmdArrStartPump, sizeof(cmdArrStartPump));
-//                commandQueue.Enqueue(commandStruct);
-//                break;
             case CMD_PUMP_OFF:
                 Serial.println("Command: Turning pump off");
                 commandStruct = buildCommandStruct(cmdArrStopPump, sizeof(cmdArrStopPump));
@@ -457,6 +423,19 @@ void queuePumpInstruction(const uint8_t *instruction) {
                 reset();
 
                 return;
+        }
+
+        // Avoid code duplication
+        if (lastCommand >= CMD_RUN_PROG_1 && lastCommand <= CMD_RUN_PROG_4) {
+            if (pumpStatusStruct.running == IFLO_RUN_STOP) {
+                commandStruct = buildCommandStruct(cmdArrStartPump, sizeof(cmdArrStartPump));
+                commandQueue.Enqueue(commandStruct);
+            }
+
+            // Schedule the timer to repeat the ext program command only if it's not running yet
+            if (extProgramTimerId == -1) {
+                extProgramTimerId = timer1.every(EXT_PROG_RPT_INTVAL, repeatExtProgramCmdCb);
+            }
         }
 
         // Set the pump into local control mode, if it has not been set into explicit remote control mode
@@ -717,12 +696,14 @@ void figureOutChangedAttributes(const uint8_t *statusMsg) {
 void reset() {
     // Stop the timer
     timer1.stop(commandTtlTimerId);
+    timer1.stop(extProgramTimerId);
 
     memset(msgBuffer, 0, sizeof(msgBuffer));
     msgBufPtr = msgBuffer;
     commandQueue.Clear();
     commandStage = CMD_STAGE_IDLE;
     commandTtlTimerId = -1;
+    extProgramTimerId = -1;
     lastCommand = CMD_NOOP;
 }
 
@@ -746,6 +727,19 @@ void commandTimeoutCb() {
     }
 
 
+}
+
+/*
+ * Repeat the last program to run every 30 seconds. Otherwise, the pump will stop executing the program and halt the pump
+ */
+void repeatExtProgramCmdCb() {
+    if (lastCommand >= CMD_RUN_PROG_1 && lastCommand <= CMD_RUN_PROG_4) {
+        uint8_t c = lastCommand;
+        queuePumpInstruction(&c);
+    } else {
+        timer1.stop(extProgramTimerId);
+        extProgramTimerId = -1;
+    }
 }
 
 #if defined(AFLIB_IN_USE)
