@@ -7,171 +7,136 @@
 		"attributeOptions": {
 			"1": {
 				"flags": [],
-				"label": "Execute Command",
+				"label": "Pump Control",
 				"valueOptions": [
 					{
 						"apply": {
 							"label": "Speed 1",
 							"state": "standby"
 						},
-						"match": "11"
+						"match": "5"
 					},
 					{
 						"apply": {
 							"label": "Speed 2",
 							"state": "standby"
 						},
-						"match": "12"
+						"match": "6"
 					},
 					{
 						"apply": {
 							"label": "Speed 3",
 							"state": "standby"
 						},
-						"match": "13"
+						"match": "7"
 					},
 					{
 						"apply": {
 							"label": "Speed 4",
 							"state": "standby"
 						},
-						"match": "14"
+						"match": "8"
 					},
 					{
 						"apply": {
-							"label": "Pump On",
+							"label": "Run: Schedule",
+							"state": "standby"
+						},
+						"match": "13"
+					},
+					{
+						"apply": {
+							"label": "Run: Off",
+							"state": "standby"
+						},
+						"match": "15"
+					},
+					{
+						"apply": {
+							"label": "Update Status",
 							"state": "standby"
 						},
 						"match": "9"
 					},
 					{
 						"apply": {
-							"label": "Pump Off",
-							"state": "standby"
-						},
-						"match": "10"
-					},
-					{
-						"apply": {
-							"label": "Prog. 1",
-							"state": "standby"
-						},
-						"match": "2"
-					},
-					{
-						"apply": {
-							"label": "Prog. 2",
-							"state": "standby"
-						},
-						"match": "3"
-					},
-					{
-						"apply": {
-							"label": "Prog. 3",
-							"state": "standby"
-						},
-						"match": "4"
-					},
-					{
-						"apply": {
-							"label": "Prog. 4",
-							"state": "standby"
-						},
-						"match": "5"
-					},
-					{
-						"apply": {
-							"label": "All Prg. Off",
-							"state": "standby"
-						},
-						"match": "1"
-					},
-					{
-						"apply": {
-							"label": "Control: Remote",
-							"state": "standby"
-						},
-						"match": "7"
-					},
-					{
-						"apply": {
 							"label": "Control: Local",
 							"state": "standby"
 						},
-						"match": "8"
+						"match": "17"
 					}
 				]
 			},
 			"2": {
 				"flags": [],
-				"label": "Set *Our* Controller Address",
+				"label": "*Our* Address",
 				"valueOptions": [
 					{
 						"apply": {
-							"label": "Remote 1 (0x20)",
+							"label": "Remote 1",
 							"state": "standby"
 						},
 						"match": "32"
 					},
 					{
 						"apply": {
-							"label": "Remote 2 (0x21)",
+							"label": "Remote 2",
 							"state": "standby"
 						},
 						"match": "33"
 					},
 					{
 						"apply": {
-							"label": "Remote 3 (0x22)",
+							"label": "Remote 3",
 							"state": "standby"
 						},
 						"match": "34"
 					},
 					{
 						"apply": {
-							"label": "Remote 4 (0x23)",
+							"label": "Remote 4",
 							"state": "standby"
 						},
 						"match": "35"
 					},
 					{
 						"apply": {
-							"label": "Remote 5 (0x24)",
+							"label": "Remote 5",
 							"state": "standby"
 						},
 						"match": "36"
 					},
 					{
 						"apply": {
-							"label": "Main 1 (0x10)",
+							"label": "Main 1",
 							"state": "standby"
 						},
 						"match": "16"
 					},
 					{
 						"apply": {
-							"label": "Main 2 (0x11)",
+							"label": "Main 2",
 							"state": "standby"
 						},
 						"match": "17"
 					},
 					{
 						"apply": {
-							"label": "Main 3 (0x12)",
+							"label": "Main 3",
 							"state": "standby"
 						},
 						"match": "18"
 					},
 					{
 						"apply": {
-							"label": "Main 4 (0x13)",
+							"label": "Main 4",
 							"state": "standby"
 						},
 						"match": "19"
 					},
 					{
 						"apply": {
-							"label": "Main 5 (0x14)",
+							"label": "Main 5",
 							"state": "standby"
 						},
 						"match": "20"
@@ -246,14 +211,14 @@
 				"valueOptions": [
 					{
 						"apply": {
-							"label": "Yes (0x0A)",
+							"label": "Yes",
 							"state": "running"
 						},
 						"match": "10"
 					},
 					{
 						"apply": {
-							"label": "No (0x04)",
+							"label": "No",
 							"state": "standby"
 						},
 						"match": "4"
@@ -266,91 +231,91 @@
 				"valueOptions": [
 					{
 						"apply": {
-							"label": "Filter (0x00)",
+							"label": "Filter",
 							"state": "standby"
 						},
 						"match": "0"
 					},
 					{
 						"apply": {
-							"label": "Manual  (0x01)",
+							"label": "Manual",
 							"state": "standby"
 						},
 						"match": "1"
 					},
 					{
 						"apply": {
-							"label": "Backwash  (0x02)",
+							"label": "Speed 1",
 							"state": "standby"
 						},
 						"match": "2"
 					},
 					{
 						"apply": {
-							"label": "Unknown Value (0x03)",
+							"label": "Speed 2",
 							"state": "standby"
 						},
 						"match": "3"
 					},
 					{
 						"apply": {
-							"label": "Unknown Value (0x04)",
+							"label": "Speed 3",
 							"state": "standby"
 						},
 						"match": "4"
 					},
 					{
 						"apply": {
-							"label": "Unknown Value (0x05)",
+							"label": "Speed 4",
 							"state": "standby"
 						},
 						"match": "5"
 					},
 					{
 						"apply": {
-							"label": "Feature 1 (0x06)",
+							"label": "Feature 1",
 							"state": "standby"
 						},
 						"match": "6"
 					},
 					{
 						"apply": {
-							"label": "Unknown Value (0x07)",
+							"label": "Unkn. Value (0x07)",
 							"state": "standby"
 						},
 						"match": "7"
 					},
 					{
 						"apply": {
-							"label": "Unknown Value (0x08)",
+							"label": "Unkn. Value (0x08)",
 							"state": "standby"
 						},
 						"match": "8"
 					},
 					{
 						"apply": {
-							"label": "Ext. Program 1 (0x09)",
+							"label": "Ext. Progr. 1",
 							"state": "standby"
 						},
 						"match": "9"
 					},
 					{
 						"apply": {
-							"label": "Ext. Program 2 (0x0A)",
+							"label": "Ext. Progr. 2",
 							"state": "standby"
 						},
 						"match": "10"
 					},
 					{
 						"apply": {
-							"label": "Ext. Program 3 (0x0B)",
+							"label": "Ext. Progr. 3",
 							"state": "standby"
 						},
 						"match": "11"
 					},
 					{
 						"apply": {
-							"label": "Ext. Program 4 (0x0C)",
+							"label": "Ext. Progr. 4",
 							"state": "standby"
 						},
 						"match": "12"
@@ -363,28 +328,28 @@
 				"valueOptions": [
 					{
 						"apply": {
-							"label": "Unknown Value (0x00)",
+							"label": "Unkn. Value (0x00)",
 							"state": "standby"
 						},
 						"match": "0"
 					},
 					{
 						"apply": {
-							"label": "Priming (0x01)",
+							"label": "Priming",
 							"state": "standby"
 						},
 						"match": "1"
 					},
 					{
 						"apply": {
-							"label": "Running (0x02)",
+							"label": "Running",
 							"state": "standby"
 						},
 						"match": "2"
 					},
 					{
 						"apply": {
-							"label": "System Priming (0x04)",
+							"label": "System Priming",
 							"state": "standby"
 						},
 						"match": "3"
@@ -417,32 +382,6 @@
 					"unitLabel": " rpm"
 				}
 			},
-			"9": {
-				"flags": [],
-				"label": "Flow Rate",
-				"rangeOptions": {
-					"max": 127,
-					"maxValue": "127",
-					"min": 0,
-					"minValue": "0",
-					"step": 1,
-					"stepValue": "1",
-					"unitLabel": " gpm"
-				}
-			},
-			"10": {
-				"flags": [],
-				"label": "PPC Levels",
-				"rangeOptions": {
-					"max": 100,
-					"maxValue": "100",
-					"min": 0,
-					"minValue": "0",
-					"step": 1,
-					"stepValue": "1",
-					"unitLabel": " %"
-				}
-			},
 			"12": {
 				"flags": [],
 				"label": "Error Code",
@@ -450,7 +389,7 @@
 			},
 			"14": {
 				"flags": [],
-				"label": "Timer (min)",
+				"label": "Timer ( min)",
 				"valueOptions": null
 			},
 			"15": {
@@ -464,63 +403,63 @@
 				"valueOptions": [
 					{
 						"apply": {
-							"label": "No pump selected (0x00)",
+							"label": "Unknown",
 							"state": "standby"
 						},
 						"match": "0"
 					},
 					{
 						"apply": {
-							"label": "1 (0x60)",
+							"label": "1",
 							"state": "standby"
 						},
 						"match": "96"
 					},
 					{
 						"apply": {
-							"label": "2 (0x61)",
+							"label": "2",
 							"state": "standby"
 						},
 						"match": "97"
 					},
 					{
 						"apply": {
-							"label": "3 (0x62)",
+							"label": "3",
 							"state": "standby"
 						},
 						"match": "98"
 					},
 					{
 						"apply": {
-							"label": "4 (0x63)",
+							"label": "4",
 							"state": "standby"
 						},
 						"match": "100"
 					},
 					{
 						"apply": {
-							"label": "5 (0x64)",
+							"label": "5",
 							"state": "standby"
 						},
 						"match": "101"
 					},
 					{
 						"apply": {
-							"label": "6 (0x65)",
+							"label": "6",
 							"state": "standby"
 						},
 						"match": "102"
 					},
 					{
 						"apply": {
-							"label": "7 (0x66)",
+							"label": "7",
 							"state": "standby"
 						},
 						"match": "103"
 					},
 					{
 						"apply": {
-							"label": "8 (0x67)",
+							"label": "8",
 							"state": "standby"
 						},
 						"match": "104"
@@ -563,20 +502,6 @@
 				},
 				"controlType": "slider",
 				"id": 5
-			},
-			{
-				"attributeMap": {
-					"value": 9
-				},
-				"controlType": "slider",
-				"id": 6
-			},
-			{
-				"attributeMap": {
-					"value": 10
-				},
-				"controlType": "slider",
-				"id": 7
 			},
 			{
 				"attributeMap": {
@@ -644,15 +569,6 @@
 		"groups": [
 			{
 				"controls": [
-					12,
-					10,
-					1,
-					2,
-					9,
-					4,
-					5,
-					6,
-					7,
 					8
 				],
 				"gauge": {
@@ -663,7 +579,7 @@
 					"foreground": {
 						"images": [
 							{
-								"uri": "device_control_icon_list.png"
+								"uri": "device_control_icon_dial1.png"
 							}
 						]
 					},
@@ -688,7 +604,7 @@
 					"foreground": {
 						"images": [
 							{
-								"uri": "device_control_icon_settings.png"
+								"uri": "device_control_icon_wrench.png"
 							}
 						]
 					},
