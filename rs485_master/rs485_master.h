@@ -104,10 +104,10 @@ uint8_t cmdArrRunExtProg3[] = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3
 uint8_t cmdArrRunExtProg4[] = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, 0x00, 0x00, IFLO_CMD_REG,     0x04, (IFLO_REG_EPRG >> 8), (IFLO_REG_EPRG & 0xFF), (IFLO_EPRG_P4 >> 8), (IFLO_EPRG_P4 & 0xFF), 0x00, 0x00};
 uint8_t cmdArrStartPump[]   = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, 0x00, 0x00, IFLO_CMD_RUN,     0x01, IFLO_RUN_STRT,    0x00, 0x00};
 uint8_t cmdArrStopPump[]    = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, 0x00, 0x00, IFLO_CMD_RUN,     0x01, IFLO_RUN_STOP,    0x00, 0x00};
-uint8_t cmdArrSetSpeed1[]   = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, 0x00, 0x00, IFLO_CMD_MODE,    0x01, IFLO_MODE_SPEED1,    0x00, 0x00};
-uint8_t cmdArrSetSpeed2[]   = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, 0x00, 0x00, IFLO_CMD_MODE,    0x01, IFLO_MODE_SPEED2,    0x00, 0x00};
-uint8_t cmdArrSetSpeed3[]   = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, 0x00, 0x00, IFLO_CMD_MODE,    0x01, IFLO_MODE_SPEED3,    0x00, 0x00};
-uint8_t cmdArrSetSpeed4[]   = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, 0x00, 0x00, IFLO_CMD_MODE,    0x01, IFLO_MODE_SPEED4,    0x00, 0x00};
+uint8_t cmdArrSetSpeed1[]   = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, 0x00, 0x00, IFLO_CMD_MODE,    0x01, IFLO_MODE_SPEED1, 0x00, 0x00};
+uint8_t cmdArrSetSpeed2[]   = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, 0x00, 0x00, IFLO_CMD_MODE,    0x01, IFLO_MODE_SPEED2, 0x00, 0x00};
+uint8_t cmdArrSetSpeed3[]   = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, 0x00, 0x00, IFLO_CMD_MODE,    0x01, IFLO_MODE_SPEED3, 0x00, 0x00};
+uint8_t cmdArrSetSpeed4[]   = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, 0x00, 0x00, IFLO_CMD_MODE,    0x01, IFLO_MODE_SPEED4, 0x00, 0x00};
 uint8_t cmdArrCustom5[]     = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, 0x00, 0x00, IFLO_CMD_MODE,    0x01, 0x00, 0x00, 0x00};
 //endregion Pump message structure related stuff like indexes, constants, etc.
 
@@ -166,21 +166,23 @@ enum COMMAND_STAGE {
 
 enum COMMAND {
     CMD_NOOP,           //0
-    CMD_ALL_OFF,        //1
-    CMD_RUN_PROG_1,     //2
-    CMD_RUN_PROG_2,     //3
-    CMD_RUN_PROG_3,     //4
-    CMD_RUN_PROG_4,     //5
-    CMD_STATUS,         //6
-    CMD_CTRL_REMOTE,    //7
-    CMD_CTRL_LOCAL,     //8
-    CMD_PUMP_ON,        //9
-    CMD_PUMP_OFF,       //10
-    CMD_SPEED_1,          //11
-    CMD_SPEED_2,         //12
-    CMD_SPEED_3,         //13
-    CMD_SPEED_4,         //14
-    CMD_CUSTOM5,         //15
+    CMD_RUN_PROG_1,     //1
+    CMD_RUN_PROG_2,     //2
+    CMD_RUN_PROG_3,     //3
+    CMD_RUN_PROG_4,     //4
+    CMD_SPEED_1,        //5
+    CMD_SPEED_2,        //6
+    CMD_SPEED_3,        //7
+    CMD_SPEED_4,        //8
+    CMD_STATUS,         //9
+    CMD_EXT_PROG_OFF,   //10
+    CMD_SCHEDULE_MODE,  //13
+    CMD_PUMP_ON,        //14
+    CMD_PUMP_OFF,       //15
+    CMD_CTRL_REMOTE,    //16
+    CMD_CTRL_LOCAL,     //17
+
+    CMD_CUSTOM5,        //16
 };
 
 enum CONTROL_MODE {
