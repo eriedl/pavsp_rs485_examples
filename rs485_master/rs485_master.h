@@ -10,24 +10,9 @@
 #define AFLIB_IN_USE
 #define RUN_PROGRAM
 
+
 //region Pump commands and instructions
 #define BROADCAST_ADDRESS   0x0F
-
-// Pump programming commands, this command writes instructions to a memory register. I.e. preset up to 4 programs to run
-// Not sure how this relates to IFLOW_CMD_MODE...
-// Are the following commands to run programs when the pump is already running and IFLOW_CMD_MODE is to set the mode before the pump is started?
-#define IFLO_CMD_REG        0x01
-#define IFLO_REG_EPRG       0x0321 // The register adress
-#define IFLO_EPRG_OFF       0x0000 // Turn all external programs off
-#define IFLO_EPRG_P1        0x0008 // Set External Program 1
-#define IFLO_EPRG_P2        0x0010 // Set External Program 2
-#define IFLO_EPRG_P3        0x0018 // Set External Program 3
-#define IFLO_EPRG_P4        0x0020 // Set External Program 4
-
-#define	IFLO_REG_EP1RPM	    0x0327	// Set speed for Ext. Prog. 1 ///* 4x160 */ <--- What does this mean???
-#define	IFLO_REG_EP2RPM	    0x0328	// Set speed for Ext. Prog. 2
-#define	IFLO_REG_EP3RPM	    0x0329	// Set speed for Ext. Prog. 3
-#define	IFLO_REG_EP4RPM	    0x032a	// Set speed for Ext. Prog. 4
 
 #define IFLO_CMD_CTRL       0x04
 #define IFLO_CTRL_LOCAL     0x00
@@ -97,18 +82,12 @@ const uint8_t PREAMBLE[] = { 0xFF, 0x00, 0xFF, 0xA5 };
 uint8_t cmdArrCtrlRemote[]  = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, 0x00, 0x00, IFLO_CMD_CTRL,    0x01, IFLO_CTRL_REMOTE, 0x00, 0x00};
 uint8_t cmdArrCtrlLocal[]   = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, 0x00, 0x00, IFLO_CMD_CTRL,    0x01, IFLO_CTRL_LOCAL,  0x00, 0x00};
 uint8_t cmdArrGetStatus[]   = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, 0x00, 0x00, IFLO_CMD_STAT,    0x00,                        0x00, 0x00};
-uint8_t cmdArrExtProgOff[]  = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, 0x00, 0x00, IFLO_CMD_REG,     0x04, (IFLO_REG_EPRG >> 8), (IFLO_REG_EPRG & 0xFF), (IFLO_EPRG_OFF >> 8), (IFLO_EPRG_OFF & 0xFF), 0x00, 0x00};
-uint8_t cmdArrRunExtProg1[] = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, 0x00, 0x00, IFLO_CMD_REG,     0x04, (IFLO_REG_EPRG >> 8), (IFLO_REG_EPRG & 0xFF), (IFLO_EPRG_P1 >> 8), (IFLO_EPRG_P1 & 0xFF), 0x00, 0x00};
-uint8_t cmdArrRunExtProg2[] = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, 0x00, 0x00, IFLO_CMD_REG,     0x04, (IFLO_REG_EPRG >> 8), (IFLO_REG_EPRG & 0xFF), (IFLO_EPRG_P2 >> 8), (IFLO_EPRG_P2 & 0xFF), 0x00, 0x00};
-uint8_t cmdArrRunExtProg3[] = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, 0x00, 0x00, IFLO_CMD_REG,     0x04, (IFLO_REG_EPRG >> 8), (IFLO_REG_EPRG & 0xFF), (IFLO_EPRG_P3 >> 8), (IFLO_EPRG_P3 & 0xFF), 0x00, 0x00};
-uint8_t cmdArrRunExtProg4[] = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, 0x00, 0x00, IFLO_CMD_REG,     0x04, (IFLO_REG_EPRG >> 8), (IFLO_REG_EPRG & 0xFF), (IFLO_EPRG_P4 >> 8), (IFLO_EPRG_P4 & 0xFF), 0x00, 0x00};
 uint8_t cmdArrStartPump[]   = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, 0x00, 0x00, IFLO_CMD_RUN,     0x01, IFLO_RUN_STRT,    0x00, 0x00};
 uint8_t cmdArrStopPump[]    = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, 0x00, 0x00, IFLO_CMD_RUN,     0x01, IFLO_RUN_STOP,    0x00, 0x00};
 uint8_t cmdArrSetSpeed1[]   = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, 0x00, 0x00, IFLO_CMD_MODE,    0x01, IFLO_MODE_SPEED1, 0x00, 0x00};
 uint8_t cmdArrSetSpeed2[]   = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, 0x00, 0x00, IFLO_CMD_MODE,    0x01, IFLO_MODE_SPEED2, 0x00, 0x00};
 uint8_t cmdArrSetSpeed3[]   = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, 0x00, 0x00, IFLO_CMD_MODE,    0x01, IFLO_MODE_SPEED3, 0x00, 0x00};
 uint8_t cmdArrSetSpeed4[]   = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, 0x00, 0x00, IFLO_CMD_MODE,    0x01, IFLO_MODE_SPEED4, 0x00, 0x00};
-uint8_t cmdArrCustom5[]     = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3], 0x00, 0x00, 0x00, IFLO_CMD_MODE,    0x01, 0x00, 0x00, 0x00};
 //endregion Pump message structure related stuff like indexes, constants, etc.
 
 //region afLib stuff
@@ -125,9 +104,9 @@ uint8_t cmdArrCustom5[]     = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3
 // Need to define these as inputs so they will float and we can connect the real pins for SPI on the
 // 2560 which are 50 - 52. You need to use jumper wires to connect the pins from the 2560 to the Plinto.
 // Since the 2560 is 5V, you must use a Plinto adapter.
-#define MOSI                      51//11    // 51 on Mega 2560
-#define MISO                      50//12    // 50 on Mega 2560
-#define SCK                       52//13    // 52 on Mega 2560
+#define MOSI                      51    // 51 on Mega 2560, 11 on UNO
+#define MISO                      50    // 50 on Mega 2560, 12 on UNO
+#define SCK                       52    // 52 on Mega 2560. 13 on UNO
 
 #elif defined(TEENSYDUINO)
 #define INT_PIN                   14    // Modulo uses this to initiate communication
@@ -139,10 +118,10 @@ uint8_t cmdArrCustom5[]     = {PREAMBLE[0], PREAMBLE[1], PREAMBLE[2], PREAMBLE[3
 //endregion
 
 //region RS485 constants
-#define SSerialTx           7 // DI: data in
-#define SSerialTxControl    6 // DE: data enable
-//#define RE_PIN              10 // RE: receive enable; jumpered together with 6, will be put into floating mode
-#define SSerialRx           62//11 // RO: receive out
+#define SSerialTx           7   // DI: data in;             7 on Mega 2560, 7 on UNO
+#define SSerialTxControl    6   // DE: data enable;         6 on Mega 2560, 6 on UNO
+//#define RE_PIN              5  // RE: receive enable; jumpered together with 6, will be put into floating mode;
+#define SSerialRx           4  // RO: receive out;     62/A8 on Mega 2560, 4 on UNO
 #define RS485Transmit       HIGH
 #define RS485Receive        LOW
 //endregion
@@ -166,16 +145,11 @@ enum COMMAND_STAGE {
 
 enum COMMAND {
     CMD_NOOP,           //0
-    CMD_RUN_PROG_1,     //1
-    CMD_RUN_PROG_2,     //2
-    CMD_RUN_PROG_3,     //3
-    CMD_RUN_PROG_4,     //4
     CMD_SPEED_1,        //5
     CMD_SPEED_2,        //6
     CMD_SPEED_3,        //7
     CMD_SPEED_4,        //8
     CMD_STATUS,         //9
-    CMD_EXT_PROG_OFF,   //10
     CMD_SCHEDULE_MODE,  //13
     CMD_PUMP_ON,        //14
     CMD_PUMP_OFF,       //15

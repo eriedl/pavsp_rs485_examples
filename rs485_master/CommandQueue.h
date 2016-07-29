@@ -21,7 +21,7 @@ public:
     uint32_t Enqueue(CommandStruct *commandInfo);
     CommandStruct *Dequeue();
     const CommandStruct *Peek();
-    uint32_t GetSize();
+    size_t GetSize();
     boolean HasNext();
     void Clear();
 

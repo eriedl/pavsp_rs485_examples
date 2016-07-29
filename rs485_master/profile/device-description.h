@@ -1,6 +1,6 @@
 /*
  * Afero Device Profile header file
- * Device Description:		51ae4387-9766-41a1-b476-33bd1d35a878
+ * Device Description:		f39df645-b353-437c-a92d-bb106f24bfea
  * Schema Version:	2
  */
 
@@ -115,58 +115,28 @@
 #define AF_PROFILE_VERSION_SZ                                           8
 #define AF_PROFILE_VERSION_TYPE                     ATTRIBUTE_TYPE_SINT64
 
-// Attribute Security Enabled
-#define AF_SECURITY_ENABLED                                         60000
-#define AF_SECURITY_ENABLED_SZ                                          1
-#define AF_SECURITY_ENABLED_TYPE                   ATTRIBUTE_TYPE_BOOLEAN
-
 // Attribute Command
-#define AF_COMMAND                                                  65012
-#define AF_COMMAND_SZ                                                   4
-#define AF_COMMAND_TYPE                             ATTRIBUTE_TYPE_SINT32
+#define AF_SYSTEM_COMMAND                                           65012
+#define AF_SYSTEM_COMMAND_SZ                                            4
+#define AF_SYSTEM_COMMAND_TYPE                      ATTRIBUTE_TYPE_SINT32
 
 // Attribute Hachi State
-#define AF_HACHI_STATE                                              65013
-#define AF_HACHI_STATE_SZ                                               1
-#define AF_HACHI_STATE_TYPE                          ATTRIBUTE_TYPE_SINT8
+#define AF_SYSTEM_HACHI_STATE                                       65013
+#define AF_SYSTEM_HACHI_STATE_SZ                                        1
+#define AF_SYSTEM_HACHI_STATE_TYPE                   ATTRIBUTE_TYPE_SINT8
 
 // Attribute Low Battery Warn
-#define AF_LOW_BATTERY_WARN                                         65014
-#define AF_LOW_BATTERY_WARN_SZ                                          1
-#define AF_LOW_BATTERY_WARN_TYPE                     ATTRIBUTE_TYPE_SINT8
-
-// Attribute Linked Timestamp
-#define AF_LINKED_TIMESTAMP                                         65015
-#define AF_LINKED_TIMESTAMP_SZ                                          4
-#define AF_LINKED_TIMESTAMP_TYPE                    ATTRIBUTE_TYPE_SINT32
-
-// Attribute Advertising Secret Duration
-#define AF_ADVERTISING_SECRET_DURATION                              65016
-#define AF_ADVERTISING_SECRET_DURATION_SZ                               1
-#define AF_ADVERTISING_SECRET_DURATION_TYPE          ATTRIBUTE_TYPE_SINT8
-
-// Attribute Advertising Secret
-#define AF_ADVERTISING_SECRET                                       65017
-#define AF_ADVERTISING_SECRET_SZ                                       32
-#define AF_ADVERTISING_SECRET_TYPE                   ATTRIBUTE_TYPE_BYTES
-
-// Attribute Attribute ACK
-#define AF_ATTRIBUTE_ACK                                            65018
-#define AF_ATTRIBUTE_ACK_SZ                                             2
-#define AF_ATTRIBUTE_ACK_TYPE                       ATTRIBUTE_TYPE_SINT16
+#define AF_SYSTEM_LOW_BATTERY_WARN                                  65014
+#define AF_SYSTEM_LOW_BATTERY_WARN_SZ                                   1
+#define AF_SYSTEM_LOW_BATTERY_WARN_TYPE              ATTRIBUTE_TYPE_SINT8
 
 // Attribute Reboot Reason
-#define AF_REBOOT_REASON                                            65019
-#define AF_REBOOT_REASON_SZ                                           100
-#define AF_REBOOT_REASON_TYPE                        ATTRIBUTE_TYPE_UTF8S
+#define AF_SYSTEM_REBOOT_REASON                                     65019
+#define AF_SYSTEM_REBOOT_REASON_SZ                                    100
+#define AF_SYSTEM_REBOOT_REASON_TYPE                 ATTRIBUTE_TYPE_UTF8S
 
-// Attribute BLE Comms
-#define AF_BLE_COMMS                                                65020
-#define AF_BLE_COMMS_SZ                                                12
-#define AF_BLE_COMMS_TYPE                            ATTRIBUTE_TYPE_BYTES
-
-// Attribute SPI Enabled
-#define AF_SPI_ENABLED                                              65021
-#define AF_SPI_ENABLED_SZ                                               1
-#define AF_SPI_ENABLED_TYPE                        ATTRIBUTE_TYPE_BOOLEAN
+// Attribute MCU Interface
+#define AF_SYSTEM_MCU_INTERFACE                                     65021
+#define AF_SYSTEM_MCU_INTERFACE_SZ                                      1
+#define AF_SYSTEM_MCU_INTERFACE_TYPE               ATTRIBUTE_TYPE_BOOLEAN
 //endregion

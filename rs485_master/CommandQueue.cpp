@@ -64,7 +64,7 @@ const CommandStruct *CommandQueue::Peek() {
     }
 }
 
-uint32_t CommandQueue::GetSize() {
+size_t CommandQueue::GetSize() {
     return this->size;
 }
 
