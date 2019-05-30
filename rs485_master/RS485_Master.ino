@@ -332,7 +332,6 @@ void loop() {
     //endregion
 
     timer1.update();
-#endif
 
     aflib->loop();
 }
