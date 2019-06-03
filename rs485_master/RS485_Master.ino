@@ -16,6 +16,9 @@
 
 iafLib *aflib;
 
+void repeatExtProgramCmdCb();
+void ISRWrapper();
+
 //region Serial command input
 #define MAX_INPUT_LEN       16
 uint8_t inputCmdBuffer[MAX_INPUT_LEN];
@@ -87,7 +90,7 @@ void setup() {
 #endif
     //endregion Arduino Board setup
 
-    ArduinoSPI *arduinoSPI = new ArduinoSPI(CS_PIN);
+    ArduinoSPI *arduinoSPI = new ArduinoSPI(CS_PIN, &Serial);
 
     /**
     * Initialize the afLib
@@ -719,7 +722,7 @@ void figureOutChangedAttributes(const uint8_t *statusMsg) {
         strcpy(pumpStatusStruct.clock, clk);
         if (ISDEBUG) statOutput += "\tCLK: " + String(clk) + "\n";
 
-        if (aflib->setAttribute(AF_STATUS__PUMP_CLOCK__HH_MM_, AF_STATUS__PUMP_CLOCK__HH_MM__SZ, pumpStatusStruct.clock) != afSUCCESS) {
+        if (aflib->setAttribute8(AF_STATUS__PUMP_CLOCK__HH_MM_, pumpStatusStruct.clock) != afSUCCESS) {
             if (ISDEBUG) Serial.println("Couldn't set clock attribute");
         }
     }
@@ -812,9 +815,9 @@ void onAttrSet(const uint8_t requestId, const uint16_t attributeId, const uint16
             break;
     }
 
-    if (aflib->setAttributeComplete(requestId, attributeId, valueLen, value) != afSUCCESS) {
-        Serial.println("setAttributeComplete failed!");
-    }
+    //if (aflib->setAttributeComplete(requestId, attributeId, valueLen, value) != afSUCCESS) {
+    //    Serial.println("setAttributeComplete failed!");
+    //}
 }
 
 /*
