@@ -1,9 +1,12 @@
 {
 	"active": true,
+	"valid": true,
+	"friendlyName": "Default Presentation",
 	"createdTimestamp": 1465525325296,
 	"deviceProfileId": "775c7bd0-1295-4a88-82d6-92f2cd12eb59",
-	"friendlyName": "Default Presentation",
+	"presentationId": "e2027f64-a326-4d95-87e6-024dc75b2ca3",
 	"presentationDefinition": {
+		"label": "Pentair Pump Status Monitor",
 		"attributeOptions": {
 			"1": {
 				"flags": [],
@@ -384,18 +387,15 @@
 			},
 			"12": {
 				"flags": [],
-				"label": "Error Code",
-				"valueOptions": null
+				"label": "Error Code"
 			},
 			"14": {
 				"flags": [],
-				"label": "Timer ( min)",
-				"valueOptions": null
+				"label": "Timer ( min)"
 			},
 			"15": {
 				"flags": [],
-				"label": "Clock",
-				"valueOptions": null
+				"label": "Clock"
 			},
 			"16": {
 				"flags": [],
@@ -467,104 +467,18 @@
 				]
 			}
 		},
-		"controls": [
-			{
-				"attributeMap": {
-					"value": 4
-				},
-				"controlType": "switch",
-				"id": 1
-			},
-			{
-				"attributeMap": {
-					"value": 5
-				},
-				"controlType": "stringControl",
-				"id": 2
-			},
-			{
-				"attributeMap": {
-					"value": 6
-				},
-				"controlType": "stringControl",
-				"id": 3
-			},
-			{
-				"attributeMap": {
-					"value": 7
-				},
-				"controlType": "slider",
-				"id": 4
-			},
-			{
-				"attributeMap": {
-					"value": 8
-				},
-				"controlType": "slider",
-				"id": 5
-			},
-			{
-				"attributeMap": {
-					"value": 12
-				},
-				"controlType": "stringControl",
-				"id": 8
-			},
-			{
-				"attributeMap": {
-					"value": 14
-				},
-				"controlType": "stringControl",
-				"id": 9
-			},
-			{
-				"attributeMap": {
-					"value": 15
-				},
-				"controlType": "stringControl",
-				"id": 10
-			},
-			{
-				"attributeMap": {
-					"value": 3
-				},
-				"controlType": "menuControl",
-				"id": 11
-			},
-			{
-				"attributeMap": {
-					"value": 16
-				},
-				"controlType": "stringControl",
-				"id": 12
-			},
-			{
-				"attributeMap": {
-					"value": 2
-				},
-				"controlType": "menuControl",
-				"id": 13
-			},
-			{
-				"attributeMap": {
-					"value": 1
-				},
-				"controlType": "menuControl",
-				"id": 14
-			}
-		],
 		"gauge": {
-			"background": {
-				"images": []
-			},
-			"displayRules": [],
 			"foreground": {
 				"images": [
 					{
-						"uri": "device_icon_water_sensor_detected.png"
+						"uri": "device_icon_water_sensor.png"
 					}
 				]
-			}
+			},
+			"background": {
+				"images": []
+			},
+			"displayRules": []
 		},
 		"groups": [
 			{
@@ -587,8 +501,8 @@
 					"labelSize": ""
 				},
 				"groups": [],
-				"id": 1464889256942,
-				"label": "Status"
+				"label": "Status",
+				"id": 1464889256942
 			},
 			{
 				"controls": [
@@ -612,12 +526,204 @@
 					"labelSize": ""
 				},
 				"groups": [],
-				"id": 1464889886972,
-				"label": "C & C"
+				"label": "C & C",
+				"id": 1464889886972
 			}
 		],
-		"label": "Pentair Pump Status Monitor"
-	},
-	"presentationId": "e2027f64-a326-4d95-87e6-024dc75b2ca3",
-	"valid": true
+		"controls": [
+			{
+				"attributeMap": {
+					"value": 4
+				},
+				"controlType": "switch",
+				"id": 1,
+				"displayRules": [
+					{
+						"match": "*",
+						"apply": {
+							"enabled": true,
+							"viewStyle": "INLINE"
+						}
+					}
+				]
+			},
+			{
+				"attributeMap": {
+					"value": 5
+				},
+				"controlType": "stringControl",
+				"id": 2,
+				"displayRules": [
+					{
+						"match": "*",
+						"apply": {
+							"enabled": true,
+							"viewStyle": "INLINE"
+						}
+					}
+				]
+			},
+			{
+				"attributeMap": {
+					"value": 6
+				},
+				"controlType": "stringControl",
+				"id": 3,
+				"displayRules": [
+					{
+						"match": "*",
+						"apply": {
+							"enabled": true,
+							"viewStyle": "INLINE"
+						}
+					}
+				]
+			},
+			{
+				"attributeMap": {
+					"value": 7
+				},
+				"controlType": "slider",
+				"id": 4,
+				"displayRules": [
+					{
+						"match": "*",
+						"apply": {
+							"enabled": true,
+							"viewStyle": "INLINE"
+						}
+					}
+				]
+			},
+			{
+				"attributeMap": {
+					"value": 8
+				},
+				"controlType": "slider",
+				"id": 5,
+				"displayRules": [
+					{
+						"match": "*",
+						"apply": {
+							"enabled": true,
+							"viewStyle": "INLINE"
+						}
+					}
+				]
+			},
+			{
+				"attributeMap": {
+					"value": 12
+				},
+				"controlType": "stringControl",
+				"id": 8,
+				"displayRules": [
+					{
+						"match": "*",
+						"apply": {
+							"enabled": true,
+							"viewStyle": "INLINE"
+						}
+					}
+				]
+			},
+			{
+				"attributeMap": {
+					"value": 14
+				},
+				"controlType": "stringControl",
+				"id": 9,
+				"displayRules": [
+					{
+						"match": "*",
+						"apply": {
+							"enabled": true,
+							"viewStyle": "INLINE"
+						}
+					}
+				]
+			},
+			{
+				"attributeMap": {
+					"value": 15
+				},
+				"controlType": "stringControl",
+				"id": 10,
+				"displayRules": [
+					{
+						"match": "*",
+						"apply": {
+							"enabled": true,
+							"viewStyle": "INLINE"
+						}
+					}
+				]
+			},
+			{
+				"attributeMap": {
+					"value": 3
+				},
+				"controlType": "menuControl",
+				"id": 11,
+				"displayRules": [
+					{
+						"match": "*",
+						"apply": {
+							"enabled": true,
+							"viewStyle": "INLINE"
+						}
+					}
+				]
+			},
+			{
+				"attributeMap": {
+					"value": 16
+				},
+				"controlType": "stringControl",
+				"id": 12,
+				"displayRules": [
+					{
+						"match": "*",
+						"apply": {
+							"enabled": true,
+							"viewStyle": "INLINE"
+						}
+					}
+				]
+			},
+			{
+				"attributeMap": {
+					"value": 2
+				},
+				"controlType": "menuControl",
+				"id": 13,
+				"displayRules": [
+					{
+						"match": "*",
+						"apply": {
+							"enabled": true,
+							"viewStyle": "INLINE"
+						}
+					}
+				]
+			},
+			{
+				"attributeMap": {
+					"value": 1
+				},
+				"controlType": "menuControl",
+				"id": 14,
+				"displayRules": [
+					{
+						"match": "*",
+						"apply": {
+							"enabled": true,
+							"viewStyle": "INLINE"
+						}
+					}
+				]
+			}
+		],
+		"layout": null
+	}
 }

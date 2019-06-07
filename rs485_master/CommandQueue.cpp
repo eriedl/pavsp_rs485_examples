@@ -5,20 +5,25 @@
 #include "Arduino.h"
 #include "CommandQueue.h"
 
-CommandQueue::CommandQueue() {
+CommandQueue::CommandQueue()
+{
     this->size = 0;
     this->frontNode = NULL;
     this->rearNode = NULL;
 }
 
-uint32_t CommandQueue::Enqueue(CommandStruct *commandInfo) {
+uint32_t CommandQueue::Enqueue(CommandStruct *commandInfo)
+{
     // First element in queue: Front is the same as rear!, nextNode is not set
-    if (this->frontNode == NULL) {
+    if (this->frontNode == NULL)
+    {
         this->frontNode = (CommandNode *)malloc(sizeof(CommandNode));
         this->frontNode->nextNode = NULL;
         this->frontNode->commandInfo = commandInfo;
         this->rearNode = this->frontNode;
-    } else {
+    }
+    else
+    {
         CommandNode *tmp = (CommandNode *)malloc(sizeof(CommandNode));
         tmp->nextNode = NULL;
         tmp->commandInfo = commandInfo;
@@ -33,21 +38,26 @@ uint32_t CommandQueue::Enqueue(CommandStruct *commandInfo) {
     return ++this->size;
 }
 
-CommandStruct *CommandQueue::Dequeue() {
+CommandStruct *CommandQueue::Dequeue()
+{
     // Nothing in the queue, return the very same
-    if (this->frontNode == NULL) {
+    if (this->frontNode == NULL)
+    {
         return NULL;
     }
 
     CommandStruct *ret = this->frontNode->commandInfo;
 
-    if (this->frontNode->nextNode == NULL) {
-        free(this->frontNode); // Only need to free the memory of front as rear is the same as front now
+    if (this->frontNode->nextNode == NULL)
+    {
+        free(this->frontNode);  // Only need to free the memory of front as rear is the same as front now
         this->frontNode = NULL; // But we need to reset both pointers
         this->rearNode = NULL;
-    } else {
+    }
+    else
+    {
         CommandNode *tmpNode = this->frontNode->nextNode;
-        free(this->frontNode); // Free memory used by front node
+        free(this->frontNode);     // Free memory used by front node
         this->frontNode = tmpNode; // Make the next node the new front node
     }
 
@@ -56,26 +66,34 @@ CommandStruct *CommandQueue::Dequeue() {
     return ret;
 }
 
-const CommandStruct *CommandQueue::Peek() {
-    if (this->frontNode == NULL) {
+const CommandStruct *CommandQueue::Peek()
+{
+    if (this->frontNode == NULL)
+    {
         return NULL;
-    } else {
+    }
+    else
+    {
         return this->frontNode->commandInfo;
     }
 }
 
-uint32_t CommandQueue::GetSize() {
+uint32_t CommandQueue::GetSize()
+{
     return this->size;
 }
 
-void CommandQueue::Clear() {
-    while(this->HasNext() == true) {
+void CommandQueue::Clear()
+{
+    while (this->HasNext() == true)
+    {
         CommandStruct *cmd = this->Dequeue();
         free(cmd->command);
         free(cmd);
     }
 }
 
-boolean CommandQueue::HasNext() {
+boolean CommandQueue::HasNext()
+{
     return (this->frontNode != NULL);
 }

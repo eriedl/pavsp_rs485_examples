@@ -1,26 +1,27 @@
-/* This program is free software. It comes without any warranty, to
- * the extent permitted by applicable law. You can redistribute it
- * and/or modify it under the terms of the Do What The Fuck You Want
- * To Public License, Version 2, as published by Sam Hocevar. See
- * http://www.wtfpl.net/ for more details.
- */
-
 #include <SoftwareSerial.h>
 #include <Timer.h>
 #include <SPI.h>
-#include <iafLib.h>
-#include <ArduinoSPI.h>
-#include "rs485_master.h"
+
+#include "af_lib.h"
+#include "arduino_spi.h"
+#include "af_module_commands.h"
+#include "af_module_states.h"
+#include "arduino_transport.h"
 #include "profile/device-description.h"
+
 #include "CommandQueue.h"
+#include "rs485_master.h"
 
-iafLib *aflib;
+af_lib_t *aflib;
 
-void repeatExtProgramCmdCb();
-void ISRWrapper();
+bool rebootPending = false; // True if reboot needed, e.g. if we received an OTA firmware update
+bool asrReady = false;      // We don't want to talk to the ASR until it's connected and online
+// We need this handle the ASR/MCU connect event. Update the constant when your MCU attribute count changes. See AF_LIB_EVENT_MCU_DEFAULT_NOTIFICATION.
+#define SYNC_ATTR_COUNT 16
+uint8_t syncNeeded;
 
 //region Serial command input
-#define MAX_INPUT_LEN       16
+#define MAX_INPUT_LEN 16
 uint8_t inputCmdBuffer[MAX_INPUT_LEN];
 uint8_t *inputCmdBufPtr;
 //endregion Serial command input
@@ -32,9 +33,9 @@ SoftwareSerial RS485Serial(SSerialRx, SSerialTx); // RX, TX
 // the longest seen so far. So, allocate 2x size of an expected message size: 2 x 32 bytes.
 //
 //#define MAX_PKG_LEN         6+256+2 //Msg Prefix + Data + Checksum
-#define MAX_PKG_LEN         6 + 32 + 2 // 40 bytes
-#define MIN_PKG_LEN         6 + 0 + 2 // 8 bytes
-#define RCV_BUF_SZ          (3 + MAX_PKG_LEN) * 2 // 86 bytes, includes preamble
+#define MAX_PKG_LEN 6 + 32 + 2           // 40 bytes
+#define MIN_PKG_LEN 6 + 0 + 2            // 8 bytes
+#define RCV_BUF_SZ (3 + MAX_PKG_LEN) * 2 // 86 bytes, includes preamble
 uint8_t msgBuffer[RCV_BUF_SZ];
 uint8_t *msgBufPtr;
 //endregion RS485 message processing
@@ -55,11 +56,13 @@ int8_t extProgramTimerId;
 //endregion State machine
 
 String strSerialCommand;
-boolean ISDEBUG             = false;
+boolean ISDEBUG = false;
 
-void setup() {
+void setup()
+{
     Serial.begin(9600);
-    while (!Serial) {
+    while (!Serial)
+    {
         ;
     }
 
@@ -90,20 +93,20 @@ void setup() {
 #endif
     //endregion Arduino Board setup
 
-    ArduinoSPI *arduinoSPI = new ArduinoSPI(CS_PIN, &Serial);
+    af_transport_t *arduinoSPI = arduino_transport_create_spi(CS_PIN);
 
     /**
     * Initialize the afLib
     *
     * Just need to configure a few things:
     *  INT_PIN - the pin used slave interrupt
-    *  ISRWrapper - function to pass interrupt on to afLib
     *  onAttrSet - the function to be called when one of your attributes has been set.
     *  onAttrSetComplete - the function to be called in response to a getAttribute call or when a afero attribute has been updated.
     *  Serial - class to handle serial communications for debug output.
     *  theSPI - class to handle SPI communications.
     */
-    aflib = iafLib::create(digitalPinToInterrupt(INT_PIN), ISRWrapper, onAttrSet, onAttrSetComplete, &Serial, arduinoSPI);
+    aflib = af_lib_create_with_unified_callback(onAttrSet, arduinoSPI);
+    arduino_spi_setup_interrupts(aflib, digitalPinToInterrupt(INT_PIN));
 
     //region RS485 setup
     pinMode(SSerialTxControl, OUTPUT);
@@ -111,7 +114,7 @@ void setup() {
     // Init Transceiver, we start with listening
     digitalWrite(SSerialTxControl, RS485Receive);
     // Start the software serial port, to another device
-    RS485Serial.begin(9600);   // set the data rate
+    RS485Serial.begin(9600); // set the data rate
     //endregion
 
     // Initialize gloabl program variables
@@ -150,29 +153,73 @@ void setup() {
 
     // Start a status query timer
     statusQryTimerId = timer1.every(STATUS_QRY_TIMEOUT, queryStatusCb);
-    if (ISDEBUG) Serial.println("statusQryTimerId: " + String(statusQryTimerId));
+    if (ISDEBUG)
+        Serial.println("statusQryTimerId: " + String(statusQryTimerId));
 }
 
-void loop() {
+void loop()
+{
+    // ALWAYS give the afLib state machine some time every loop() that it's possible to do so.
+    af_lib_loop(aflib);
+
+    // If we were asked to reboot (e.g. after an OTA firmware update), make the call here in loop().
+    // In order to make this fault-tolerant, we'll continue to retry if the command fails.
+    if (rebootPending)
+    {
+        int retVal = af_lib_set_attribute_32(aflib, AF_SYSTEM_COMMAND, AF_MODULE_COMMAND_REBOOT);
+        rebootPending = (retVal != AF_SUCCESS);
+    }
+
+    if (!asrReady)
+        return; // Dont do anything below this point if the ASR isn't connected
+
+    // Handle ASR/MCU connect
+    if (syncNeeded == SYNC_ATTR_COUNT)
+    {
+        af_lib_set_attribute_16(aflib, AF_PUMP_COMMAND, 0);
+        af_lib_set_attribute_8(aflib, AF_SET_CONTROLLER_ADDRESS, 32);
+        af_lib_set_attribute_8(aflib, AF_SET_PUMP_ADDRESS, 96);
+        af_lib_set_attribute_8(aflib, AF_STATUS__PUMP_RUNNING_STATE, 4);
+        af_lib_set_attribute_8(aflib, AF_STATUS__PUMP_MODE, 0);
+        af_lib_set_attribute_8(aflib, AF_STATUS__PUMP_DRIVE_STATE, 0);
+        af_lib_set_attribute_16(aflib, AF_STATUS__PUMP_POWER_USAGE__W_, 0);
+        af_lib_set_attribute_16(aflib, AF_STATUS__PUMP_SPEED__RPM_, 0);
+        af_lib_set_attribute_8(aflib, AF_STATUS__PUMP_FLOW_RATE__GPM_, 0);
+        af_lib_set_attribute_8(aflib, AF_STATUS__PUMP_PPC_LEVELS____, 0);
+        af_lib_set_attribute_8(aflib, AF_STATUS__PUMP_BYTE_09____, 0);
+        af_lib_set_attribute_8(aflib, AF_STATUS__PUMP_ERROR_CODE, 0);
+        af_lib_set_attribute_8(aflib, AF_STATUS__PUMP_BYTE_11____, 0);
+        af_lib_set_attribute_16(aflib, AF_STATUS__PUMP_TIMER__MIN_, 0);
+        af_lib_set_attribute_str(aflib, AF_STATUS__PUMP_CLOCK__HH_MM_, 5, "00:00");
+        af_lib_set_attribute_8(aflib, AF_STATUS__CURRENT_PUMP_ADDRESS, 96);
+        syncNeeded = 0;
+    }
+
     //region Serial command input
     // Parse a command
-    if (Serial.available()) {
+    if (Serial.available())
+    {
         int iRcv = -1;
 
-        while ((iRcv = Serial.read()) > -1) {
+        while ((iRcv = Serial.read()) > -1)
+        {
             // Line ending indicates end of command
-            if (iRcv == 0x0A || iRcv == 0x0D) {
+            if (iRcv == 0x0A || iRcv == 0x0D)
+            {
                 strSerialCommand = String((char *)inputCmdBuffer);
-                uint8_t  c = 0;
+                uint8_t c = 0;
                 int sepIdx = strSerialCommand.indexOf(':');
 
-                if (sepIdx > -1) {
+                if (sepIdx > -1)
+                {
                     c = strSerialCommand.substring(0, sepIdx).toInt();
                     Serial.println(c);
                     uint8_t val = strSerialCommand.substring(sepIdx + 1).toInt();
                     cmdArrCustom5[MSG_CFI_IDX + 2] = val;
                     Serial.println(val);
-                } else {
+                }
+                else
+                {
                     c = strSerialCommand.toInt();
                 }
 
@@ -187,7 +234,8 @@ void loop() {
             *inputCmdBufPtr++ = iRcv;
 
             // Reset the buffer
-            if ((inputCmdBufPtr - inputCmdBuffer) > MAX_INPUT_LEN) { // Pointer arithmetic usually gives you the index, but we increment the pointer after every assignment, so we get now the length
+            if ((inputCmdBufPtr - inputCmdBuffer) > MAX_INPUT_LEN)
+            { // Pointer arithmetic usually gives you the index, but we increment the pointer after every assignment, so we get now the length
                 memset(inputCmdBuffer, 0, sizeof(inputCmdBuffer));
                 inputCmdBufPtr = inputCmdBuffer;
 
@@ -198,19 +246,22 @@ void loop() {
     //endregion
 
     //region Send Ctrl Remote/Local or the actual Command
-    if (commandStage == CMD_STAGE_SEND) {
+    if (commandStage == CMD_STAGE_SEND)
+    {
         digitalWrite(SSerialTxControl, RS485Transmit);
 
         Serial.println("Queue size: " + String(commandQueue.GetSize()));
 
         const CommandStruct *cmd = commandQueue.Peek();
 
-        if (ISDEBUG) {
+        if (ISDEBUG)
+        {
             Serial.print("Sending data: ");
-            for (int i = 0; i < cmd->size; ++i) {
+            for (int i = 0; i < cmd->size; ++i)
+            {
                 if (ISDEBUG)
                     Serial.print(
-                            cmd->command[i] < 0x10 ? "0" + String(cmd->command[i], HEX) : String(cmd->command[i], HEX));
+                        cmd->command[i] < 0x10 ? "0" + String(cmd->command[i], HEX) : String(cmd->command[i], HEX));
             }
             Serial.println(", Checksum: " + String(cmd->command[cmd->size - 2] < 8 + cmd->command[cmd->size - 1]));
         }
@@ -227,43 +278,56 @@ void loop() {
     //endregion
 
     //region Receive data from remote
-    if (commandStage == CMD_STAGE_CONFIRM) {
-        if (RS485Serial.available() > 0) {
+    if (commandStage == CMD_STAGE_CONFIRM)
+    {
+        if (RS485Serial.available() > 0)
+        {
             int iRcv = -1;
 
-            if (ISDEBUG) Serial.print("Incoming data: ");
-            while ((iRcv = RS485Serial.read()) > -1) {
+            if (ISDEBUG)
+                Serial.print("Incoming data: ");
+            while ((iRcv = RS485Serial.read()) > -1)
+            {
                 *msgBufPtr++ = (char)iRcv;
 
-                if (ISDEBUG) Serial.print(iRcv < 0x10 ? "0" + String(iRcv, HEX) : String(iRcv, HEX));
+                if (ISDEBUG)
+                    Serial.print(iRcv < 0x10 ? "0" + String(iRcv, HEX) : String(iRcv, HEX));
 
                 // Reset the buffer, if we overflow. That should not happen
-                if ((msgBufPtr - msgBuffer) > RCV_BUF_SZ) {
-                    if (ISDEBUG) Serial.println("Buffer overflow. Resetting system...");
+                if ((msgBufPtr - msgBuffer) > RCV_BUF_SZ)
+                {
+                    if (ISDEBUG)
+                        Serial.println("Buffer overflow. Resetting system...");
                     reset();
 
                     return;
                 }
             }
-            if (ISDEBUG) Serial.println();
+            if (ISDEBUG)
+                Serial.println();
         }
 
         // Now check if we got a useful message
-        if (ISDEBUG) Serial.println("len: " + String((msgBufPtr - msgBuffer)) + ", min len: " + String((PREAMBLE_LEN - 1 + MIN_PKG_LEN)));
+        if (ISDEBUG)
+            Serial.println("len: " + String((msgBufPtr - msgBuffer)) + ", min len: " + String((PREAMBLE_LEN - 1 + MIN_PKG_LEN)));
         int msgStartIdx = -1;
         int msgLength = -1;
         // FIXME: Handle multiple consecutive messages in buffer. Ideally make this a loop until no message
         boolean msgFound = findPAMessage(msgBuffer, (msgBufPtr - msgBuffer), &msgStartIdx, &msgLength);
-        if (ISDEBUG) Serial.println("Message found: " + String(msgFound));
+        if (ISDEBUG)
+            Serial.println("Message found: " + String(msgFound));
 
-        if (msgFound == true) {
+        if (msgFound == true)
+        {
             const CommandStruct *commandStructPtr = commandQueue.Peek();
             uint8_t *relMsgPtr = &msgBuffer[msgStartIdx];
             // Reset the buffer and bail if the message was not for us and it is not a broadcast
             if (
-//                    (showBroadcasts == true && relMsgPtr[MSG_DST_IDX] != BROADCAST_ADDRESS) &&
-                    (relMsgPtr[MSG_DST_IDX] != controllerAddress || relMsgPtr[MSG_SRC_IDX] != pumpAddress)) {
-                if (ISDEBUG) Serial.println("Message not for us SRC: " + String(relMsgPtr[MSG_DST_IDX], HEX) + " DST: " + String(relMsgPtr[MSG_SRC_IDX], HEX));
+                //                    (showBroadcasts == true && relMsgPtr[MSG_DST_IDX] != BROADCAST_ADDRESS) &&
+                (relMsgPtr[MSG_DST_IDX] != controllerAddress || relMsgPtr[MSG_SRC_IDX] != pumpAddress))
+            {
+                if (ISDEBUG)
+                    Serial.println("Message not for us SRC: " + String(relMsgPtr[MSG_DST_IDX], HEX) + " DST: " + String(relMsgPtr[MSG_SRC_IDX], HEX));
                 memset(msgBuffer, 0, sizeof(msgBuffer));
                 msgBufPtr = msgBuffer;
 
@@ -271,32 +335,41 @@ void loop() {
             }
 
             // Response is not for our last command
-            if (relMsgPtr[MSG_CFI_IDX] != commandStructPtr->command[MSG_CFI_IDX]) {
-                if (ISDEBUG) Serial.println("Message is not a confirmation of our last command: SENT: "
-                                            + String(commandStructPtr->command[MSG_CFI_IDX], HEX) + " RCVD: " + String(relMsgPtr[MSG_CFI_IDX], HEX));
+            if (relMsgPtr[MSG_CFI_IDX] != commandStructPtr->command[MSG_CFI_IDX])
+            {
+                if (ISDEBUG)
+                    Serial.println("Message is not a confirmation of our last command: SENT: " + String(commandStructPtr->command[MSG_CFI_IDX], HEX) + " RCVD: " + String(relMsgPtr[MSG_CFI_IDX], HEX));
                 reset();
 
                 return;
             }
 
             // Response should also contain the last command value, unless it was a status request
-            if (commandStructPtr->command[MSG_CFI_IDX] == IFLO_CMD_STAT) {
+            if (commandStructPtr->command[MSG_CFI_IDX] == IFLO_CMD_STAT)
+            {
                 // TODO: Queue attribute updates
                 figureOutChangedAttributes(relMsgPtr);
-            } else {
-                for (int i = MSG_LEN_IDX + 1; i < relMsgPtr[MSG_LEN_IDX]; ++i) {
+            }
+            else
+            {
+                for (int i = MSG_LEN_IDX + 1; i < relMsgPtr[MSG_LEN_IDX]; ++i)
+                {
                     uint8_t lCmdVal = 0x00;
 
                     // Register writes echo only the value!
-                    if (commandStructPtr->command[MSG_CFI_IDX] == IFLO_CMD_REG) {
+                    if (commandStructPtr->command[MSG_CFI_IDX] == IFLO_CMD_REG)
+                    {
                         lCmdVal = commandStructPtr->command[i + sizeof(IFLO_REG_EPRG)];
-                    } else {
+                    }
+                    else
+                    {
                         lCmdVal = commandStructPtr->command[i];
                     }
 
-                    if (relMsgPtr[i] != lCmdVal) {
-                        if (ISDEBUG)Serial.println("Message does not contain expected value of sent command value at data index "
-                                                   + String(i) + " SENT: " + String(lCmdVal) + " RCVD: " + String(relMsgPtr[i]));
+                    if (relMsgPtr[i] != lCmdVal)
+                    {
+                        if (ISDEBUG)
+                            Serial.println("Message does not contain expected value of sent command value at data index " + String(i) + " SENT: " + String(lCmdVal) + " RCVD: " + String(relMsgPtr[i]));
                         reset();
 
                         return;
@@ -304,7 +377,8 @@ void loop() {
                 }
             }
 
-            if (ISDEBUG) Serial.println("Last command confirmed");
+            if (ISDEBUG)
+                Serial.println("Last command confirmed");
 
             // Reset the receiving buffer and dispose of the last command
             memset(msgBuffer, 0, sizeof(msgBuffer));
@@ -316,15 +390,21 @@ void loop() {
             free(tmpCmdStruct);
 
             // We should be good now
-            if (commandQueue.HasNext() == true) {
+            if (commandQueue.HasNext() == true)
+            {
                 commandStage = CMD_STAGE_SEND;
-            } else {
+            }
+            else
+            {
                 commandStage = CMD_STAGE_IDLE;
 
                 // Reset the Command attribute to previous command now that the chain has completed
-                if (lastCommand >= CMD_RUN_PROG_1 && lastCommand <= CMD_RUN_PROG_4) {
-                    if (ISDEBUG) Serial.println("Running program, resetting lastCommand to program: " + String(lastCommand));
-                    if (aflib->setAttribute8(AF_PUMP_COMMAND, lastCommand) != afSUCCESS) {
+                if (lastCommand >= CMD_RUN_PROG_1 && lastCommand <= CMD_RUN_PROG_4)
+                {
+                    if (ISDEBUG)
+                        Serial.println("Running program, resetting lastCommand to program: " + String(lastCommand));
+                    if (af_lib_set_attribute_8(aflib, AF_PUMP_COMMAND, lastCommand) != AF_SUCCESS)
+                    {
                         Serial.println("Could not update pump command attribute. Stopping program execution");
                         reset();
                     }
@@ -335,8 +415,6 @@ void loop() {
     //endregion
 
     timer1.update();
-
-    aflib->loop();
 }
 
 /*
@@ -351,148 +429,158 @@ void loop() {
  *
  * TODO: Keep track of remote/local control setting.
  */
-void queuePumpInstruction(const uint8_t *instruction) {
+void queuePumpInstruction(const uint8_t *instruction)
+{
     CommandStruct *commandStruct;
 
     Serial.println("Queueing pump instruction: " + String(*instruction));
 
-    if (commandStage == CMD_STAGE_IDLE && *instruction > CMD_NOOP) {
+    if (commandStage == CMD_STAGE_IDLE && *instruction > CMD_NOOP)
+    {
         // Fill the command queue
         //1. Set the pump into remote control mode, if it's not in remote control mode yet
-        if (pumpStatusStruct.ctrl_mode == CTRL_MODE_LOCAL && *instruction != CMD_CTRL_REMOTE && *instruction != CMD_CTRL_LOCAL) {
+        if (pumpStatusStruct.ctrl_mode == CTRL_MODE_LOCAL && *instruction != CMD_CTRL_REMOTE && *instruction != CMD_CTRL_LOCAL)
+        {
             commandStruct = buildCommandStruct(cmdArrCtrlRemote, sizeof(cmdArrCtrlRemote));
             commandQueue.Enqueue(commandStruct);
         }
 
-        switch(*instruction) {
-            case 127:
-                ISDEBUG = (ISDEBUG == true ? false : true);
-                Serial.println("Command: Set ISDEBUG to " + String(ISDEBUG));
-                return;
-            case CMD_RUN_PROG_1:
-                Serial.println("Command: Running external program 1");
-                commandStruct = buildCommandStruct(cmdArrRunExtProg1, sizeof(cmdArrRunExtProg1));
-                commandQueue.Enqueue(commandStruct);
-                lastCommand = CMD_RUN_PROG_1;
-                break;
-            case CMD_RUN_PROG_2:
-                Serial.println("Command: Running external program 2");
-                commandStruct = buildCommandStruct(cmdArrRunExtProg2, sizeof(cmdArrRunExtProg2));
-                commandQueue.Enqueue(commandStruct);
-                lastCommand = CMD_RUN_PROG_2;
-                break;
-            case CMD_RUN_PROG_3:
-                Serial.println("Command: Running external program 3");
-                commandStruct = buildCommandStruct(cmdArrRunExtProg3, sizeof(cmdArrRunExtProg3));
-                commandQueue.Enqueue(commandStruct);
-                lastCommand = CMD_RUN_PROG_3;
-                break;
-            case CMD_RUN_PROG_4:
-                Serial.println("Command: Running external program 4");
-                commandStruct = buildCommandStruct(cmdArrRunExtProg4, sizeof(cmdArrRunExtProg4));
-                commandQueue.Enqueue(commandStruct);
-                lastCommand = CMD_RUN_PROG_4;
-                break;
-            case CMD_EXT_PROG_OFF:
-                Serial.println("Command: Turning external programs off");
-                commandStruct = buildCommandStruct(cmdArrExtProgOff, sizeof(cmdArrExtProgOff));
-                commandQueue.Enqueue(commandStruct);
-                lastCommand = CMD_EXT_PROG_OFF;
-                break;
-            case CMD_SPEED_1:
-                Serial.println("Command: Running speed 1");
-                commandStruct = buildCommandStruct(cmdArrSetSpeed1, sizeof(cmdArrSetSpeed1));
-                commandQueue.Enqueue(commandStruct);
-                lastCommand = CMD_SPEED_1;
-                break;
-            case CMD_SPEED_2:
-                Serial.println("Command: Running speed 2");
-                commandStruct = buildCommandStruct(cmdArrSetSpeed2, sizeof(cmdArrSetSpeed2));
-                commandQueue.Enqueue(commandStruct);
-                lastCommand = CMD_SPEED_2;
-                break;
-            case CMD_SPEED_3:
-                Serial.println("Command: Running speed 3");
-                commandStruct = buildCommandStruct(cmdArrSetSpeed3, sizeof(cmdArrSetSpeed3));
-                commandQueue.Enqueue(commandStruct);
-                lastCommand = CMD_SPEED_3;
-                break;
-            case CMD_SPEED_4:
-                Serial.println("Command: Running speed 4");
-                commandStruct = buildCommandStruct(cmdArrSetSpeed4, sizeof(cmdArrSetSpeed4));
-                commandQueue.Enqueue(commandStruct);
-                lastCommand = CMD_SPEED_4;
-                break;
-            case CMD_STATUS:
-                Serial.println("Command: Querying pump status");
-                commandStruct = buildCommandStruct(cmdArrGetStatus, sizeof(cmdArrGetStatus));
-                commandQueue.Enqueue(commandStruct);
-                break;
-            case CMD_PUMP_ON:
-                Serial.println("Command: Turning pump on");
-                commandStruct = buildCommandStruct(cmdArrStartPump, sizeof(cmdArrStartPump));
-                commandQueue.Enqueue(commandStruct);
-                lastCommand = CMD_PUMP_ON;
-                break;
-            case CMD_PUMP_OFF:
-                Serial.println("Command: Turning pump off");
+        switch (*instruction)
+        {
+        case 127:
+            ISDEBUG = (ISDEBUG == true ? false : true);
+            Serial.println("Command: Set ISDEBUG to " + String(ISDEBUG));
+            return;
+        case CMD_RUN_PROG_1:
+            Serial.println("Command: Running external program 1");
+            commandStruct = buildCommandStruct(cmdArrRunExtProg1, sizeof(cmdArrRunExtProg1));
+            commandQueue.Enqueue(commandStruct);
+            lastCommand = CMD_RUN_PROG_1;
+            break;
+        case CMD_RUN_PROG_2:
+            Serial.println("Command: Running external program 2");
+            commandStruct = buildCommandStruct(cmdArrRunExtProg2, sizeof(cmdArrRunExtProg2));
+            commandQueue.Enqueue(commandStruct);
+            lastCommand = CMD_RUN_PROG_2;
+            break;
+        case CMD_RUN_PROG_3:
+            Serial.println("Command: Running external program 3");
+            commandStruct = buildCommandStruct(cmdArrRunExtProg3, sizeof(cmdArrRunExtProg3));
+            commandQueue.Enqueue(commandStruct);
+            lastCommand = CMD_RUN_PROG_3;
+            break;
+        case CMD_RUN_PROG_4:
+            Serial.println("Command: Running external program 4");
+            commandStruct = buildCommandStruct(cmdArrRunExtProg4, sizeof(cmdArrRunExtProg4));
+            commandQueue.Enqueue(commandStruct);
+            lastCommand = CMD_RUN_PROG_4;
+            break;
+        case CMD_EXT_PROG_OFF:
+            Serial.println("Command: Turning external programs off");
+            commandStruct = buildCommandStruct(cmdArrExtProgOff, sizeof(cmdArrExtProgOff));
+            commandQueue.Enqueue(commandStruct);
+            lastCommand = CMD_EXT_PROG_OFF;
+            break;
+        case CMD_SPEED_1:
+            Serial.println("Command: Running speed 1");
+            commandStruct = buildCommandStruct(cmdArrSetSpeed1, sizeof(cmdArrSetSpeed1));
+            commandQueue.Enqueue(commandStruct);
+            lastCommand = CMD_SPEED_1;
+            break;
+        case CMD_SPEED_2:
+            Serial.println("Command: Running speed 2");
+            commandStruct = buildCommandStruct(cmdArrSetSpeed2, sizeof(cmdArrSetSpeed2));
+            commandQueue.Enqueue(commandStruct);
+            lastCommand = CMD_SPEED_2;
+            break;
+        case CMD_SPEED_3:
+            Serial.println("Command: Running speed 3");
+            commandStruct = buildCommandStruct(cmdArrSetSpeed3, sizeof(cmdArrSetSpeed3));
+            commandQueue.Enqueue(commandStruct);
+            lastCommand = CMD_SPEED_3;
+            break;
+        case CMD_SPEED_4:
+            Serial.println("Command: Running speed 4");
+            commandStruct = buildCommandStruct(cmdArrSetSpeed4, sizeof(cmdArrSetSpeed4));
+            commandQueue.Enqueue(commandStruct);
+            lastCommand = CMD_SPEED_4;
+            break;
+        case CMD_STATUS:
+            Serial.println("Command: Querying pump status");
+            commandStruct = buildCommandStruct(cmdArrGetStatus, sizeof(cmdArrGetStatus));
+            commandQueue.Enqueue(commandStruct);
+            break;
+        case CMD_PUMP_ON:
+            Serial.println("Command: Turning pump on");
+            commandStruct = buildCommandStruct(cmdArrStartPump, sizeof(cmdArrStartPump));
+            commandQueue.Enqueue(commandStruct);
+            lastCommand = CMD_PUMP_ON;
+            break;
+        case CMD_PUMP_OFF:
+            Serial.println("Command: Turning pump off");
+            commandStruct = buildCommandStruct(cmdArrStopPump, sizeof(cmdArrStopPump));
+            commandQueue.Enqueue(commandStruct);
+            lastCommand = CMD_PUMP_OFF;
+            break;
+        case CMD_SCHEDULE_MODE:
+            Serial.println("Command: Setting schedule mode");
+            commandStruct = buildCommandStruct(cmdArrStopPump, sizeof(cmdArrStopPump));
+            commandQueue.Enqueue(commandStruct);
+            // Need to "press STOP twice" if the pump is still running
+            if (pumpStatusStruct.running == IFLO_RUN_STRT)
+            {
                 commandStruct = buildCommandStruct(cmdArrStopPump, sizeof(cmdArrStopPump));
                 commandQueue.Enqueue(commandStruct);
-                lastCommand = CMD_PUMP_OFF;
-                break;
-            case CMD_SCHEDULE_MODE:
-                Serial.println("Command: Setting schedule mode");
-                commandStruct = buildCommandStruct(cmdArrStopPump, sizeof(cmdArrStopPump));
-                commandQueue.Enqueue(commandStruct);
-                // Need to "press STOP twice" if the pump is still running
-                if (pumpStatusStruct.running == IFLO_RUN_STRT) {
-                    commandStruct = buildCommandStruct(cmdArrStopPump, sizeof(cmdArrStopPump));
-                    commandQueue.Enqueue(commandStruct);
-                }
-                lastCommand = CMD_SCHEDULE_MODE;
-                break;
-            case CMD_CTRL_REMOTE:
-                Serial.println("Command: Setting control remote");
-                commandStruct = buildCommandStruct(cmdArrCtrlRemote, sizeof(cmdArrCtrlRemote));
-                commandQueue.Enqueue(commandStruct);
-                pumpStatusStruct.ctrl_mode = CTRL_MODE_REMOTE;
-                break;
-            case CMD_CTRL_LOCAL:
-                Serial.println("Command: Setting control local");
-                commandStruct = buildCommandStruct(cmdArrCtrlLocal, sizeof(cmdArrCtrlLocal));
-                commandQueue.Enqueue(commandStruct);
-                pumpStatusStruct.ctrl_mode = CTRL_MODE_LOCAL;
-                break;
-            case CMD_CUSTOM5:
-                Serial.println("Command: Running custom command 5");
-                commandStruct = buildCommandStruct(cmdArrCustom5, sizeof(cmdArrCustom5));
-                commandQueue.Enqueue(commandStruct);
-                lastCommand = CMD_CUSTOM5;
-                break;
-            default:
-                Serial.print("What? Resetting....");
-                reset();
+            }
+            lastCommand = CMD_SCHEDULE_MODE;
+            break;
+        case CMD_CTRL_REMOTE:
+            Serial.println("Command: Setting control remote");
+            commandStruct = buildCommandStruct(cmdArrCtrlRemote, sizeof(cmdArrCtrlRemote));
+            commandQueue.Enqueue(commandStruct);
+            pumpStatusStruct.ctrl_mode = CTRL_MODE_REMOTE;
+            break;
+        case CMD_CTRL_LOCAL:
+            Serial.println("Command: Setting control local");
+            commandStruct = buildCommandStruct(cmdArrCtrlLocal, sizeof(cmdArrCtrlLocal));
+            commandQueue.Enqueue(commandStruct);
+            pumpStatusStruct.ctrl_mode = CTRL_MODE_LOCAL;
+            break;
+        case CMD_CUSTOM5:
+            Serial.println("Command: Running custom command 5");
+            commandStruct = buildCommandStruct(cmdArrCustom5, sizeof(cmdArrCustom5));
+            commandQueue.Enqueue(commandStruct);
+            lastCommand = CMD_CUSTOM5;
+            break;
+        default:
+            Serial.print("What? Resetting....");
+            reset();
 
-                return;
+            return;
         }
 
         // Avoid code duplication
-        if (lastCommand >= CMD_RUN_PROG_1 && lastCommand <= CMD_SPEED_4) {
-            if (pumpStatusStruct.running == IFLO_RUN_STOP) {
+        if (lastCommand >= CMD_RUN_PROG_1 && lastCommand <= CMD_SPEED_4)
+        {
+            if (pumpStatusStruct.running == IFLO_RUN_STOP)
+            {
                 commandStruct = buildCommandStruct(cmdArrStartPump, sizeof(cmdArrStartPump));
                 commandQueue.Enqueue(commandStruct);
             }
 
             // Schedule the timer to repeat the ext program command only if it's not running yet
-            if (lastCommand <= CMD_RUN_PROG_4) {
-                if (extProgramTimerId == -1) {
+            if (lastCommand <= CMD_RUN_PROG_4)
+            {
+                if (extProgramTimerId == -1)
+                {
                     extProgramTimerId = timer1.every(EXT_PROG_RPT_INTVAL, repeatExtProgramCmdCb);
                 }
             }
         }
 
         // Set the pump into local control mode, if it has not been set into explicit remote control mode
-        if (pumpStatusStruct.ctrl_mode == CTRL_MODE_LOCAL && *instruction != CMD_CTRL_REMOTE && *instruction != CMD_CTRL_LOCAL) {
+        if (pumpStatusStruct.ctrl_mode == CTRL_MODE_LOCAL && *instruction != CMD_CTRL_REMOTE && *instruction != CMD_CTRL_LOCAL)
+        {
             commandStruct = buildCommandStruct(cmdArrCtrlLocal, sizeof(cmdArrCtrlLocal));
             commandQueue.Enqueue(commandStruct);
         }
@@ -503,7 +591,8 @@ void queuePumpInstruction(const uint8_t *instruction) {
     Serial.println("queuePumpInstructions lastCommand: " + String(lastCommand));
 }
 
-CommandStruct *buildCommandStruct(uint8_t *command, size_t size) {
+CommandStruct *buildCommandStruct(uint8_t *command, size_t size)
+{
     uint16_t chkSum = 0;
     CommandStruct *commandStruct = (CommandStruct *)malloc(sizeof(CommandStruct));
 
@@ -512,22 +601,30 @@ CommandStruct *buildCommandStruct(uint8_t *command, size_t size) {
 
     Serial.println("Queueing command");
     Serial.print("Data: ");
-    for (int i = 0; i < size; ++i) {
+    for (int i = 0; i < size; ++i)
+    {
         commandStruct->command[i] = command[i];
 
-        if (i == MSG_DST_IDX) {
+        if (i == MSG_DST_IDX)
+        {
             commandStruct->command[i] = pumpAddress;
-        } else if (i == MSG_SRC_IDX) {
+        }
+        else if (i == MSG_SRC_IDX)
+        {
             commandStruct->command[i] = controllerAddress;
         }
 
-        if (i >= MSG_BGN_IDX && i < size - 2) {
+        if (i >= MSG_BGN_IDX && i < size - 2)
+        {
             chkSum += commandStruct->command[i]; // Calculate the checksum
         }
 
-        if (i == size - 2) {
+        if (i == size - 2)
+        {
             commandStruct->command[i] = chkSum >> 8; // Set checksum high byte
-        } else if (i == size - 1) {
+        }
+        else if (i == size - 1)
+        {
             commandStruct->command[i] = chkSum & 0xFF; // Set checksum low byte
         }
 
@@ -538,41 +635,47 @@ CommandStruct *buildCommandStruct(uint8_t *command, size_t size) {
     return commandStruct;
 }
 
-boolean findPAMessage(const uint8_t *data, const int len, int *msgStartIdx, int *actualMsgLength) {
+boolean findPAMessage(const uint8_t *data, const int len, int *msgStartIdx, int *actualMsgLength)
+{
     *msgStartIdx = -1; // the starting index of a valid message, if any. 0xA5
     *actualMsgLength = 0;
 
     // Find the start of the message
-    for (int i = 0; i < (len - PREAMBLE_LEN); ++i) {
-        if (data[i] == PREAMBLE[0]
-            && data[i + 1] == PREAMBLE[1]
-            && data[i + 2] == PREAMBLE[2]
-            && data[i + 3] == PREAMBLE[3]) {
+    for (int i = 0; i < (len - PREAMBLE_LEN); ++i)
+    {
+        if (data[i] == PREAMBLE[0] && data[i + 1] == PREAMBLE[1] && data[i + 2] == PREAMBLE[2] && data[i + 3] == PREAMBLE[3])
+        {
             *msgStartIdx = i + 3;
             break;
         }
     }
 
-    if (ISDEBUG) Serial.println("msgStartIdx: " + String(*msgStartIdx));
+    if (ISDEBUG)
+        Serial.println("msgStartIdx: " + String(*msgStartIdx));
     // Check if the found start index + minimum package length is within total length of message
-    if (*msgStartIdx == -1 || (*msgStartIdx + MIN_PKG_LEN) > len) {
+    if (*msgStartIdx == -1 || (*msgStartIdx + MIN_PKG_LEN) > len)
+    {
         return false;
     }
 
     // Get the actual data length. It's the eigth byte in the message including preamble (or 5th starting at MSG_BGN_IDX
     int dataLength = data[*msgStartIdx + (MSG_LEN_IDX - MSG_BGN_IDX)];
-    if (ISDEBUG) Serial.println("dataLength: " + String(dataLength));
+    if (ISDEBUG)
+        Serial.println("dataLength: " + String(dataLength));
     // Check again if total message length is within the boundaries given the data length
     *actualMsgLength = (MSG_LEN_IDX - MSG_BGN_IDX) + 1 + dataLength + 2; // Index + 1, actual data length, check sum length
-    if (*msgStartIdx + *actualMsgLength > len) {
+    if (*msgStartIdx + *actualMsgLength > len)
+    {
         return false;
     }
 
-    if (ISDEBUG) Serial.println("actualMsgLength: " + String(*actualMsgLength));
+    if (ISDEBUG)
+        Serial.println("actualMsgLength: " + String(*actualMsgLength));
     // Calculate the checksum
     int chkSum = 0;
     int expChkSum = (data[*msgStartIdx + *actualMsgLength - 2] * 256) + data[*msgStartIdx + *actualMsgLength - 1];
-    for (int i = *msgStartIdx; i < (*msgStartIdx + *actualMsgLength - 2); ++i) {
+    for (int i = *msgStartIdx; i < (*msgStartIdx + *actualMsgLength - 2); ++i)
+    {
         chkSum += data[i];
     }
 
@@ -580,7 +683,8 @@ boolean findPAMessage(const uint8_t *data, const int len, int *msgStartIdx, int 
     *msgStartIdx -= (PREAMBLE_LEN - 1);
     *actualMsgLength += (PREAMBLE_LEN - 1);
 
-    if (ISDEBUG) {
+    if (ISDEBUG)
+    {
         Serial.println("msgStartIdx: " + String(*msgStartIdx));
         Serial.println("actualMsgLength: " + String(*actualMsgLength));
         Serial.println("Calc checksum: " + String(chkSum));
@@ -590,125 +694,177 @@ boolean findPAMessage(const uint8_t *data, const int len, int *msgStartIdx, int 
     }
 
     // Verify the checksum
-    if (chkSum != expChkSum) {
-        if (ISDEBUG) Serial.println("Checksum is: BAD");
+    if (chkSum != expChkSum)
+    {
+        if (ISDEBUG)
+            Serial.println("Checksum is: BAD");
 
         return false;
     }
 
-    if (ISDEBUG) Serial.println("Checksum is: GOOD");
+    if (ISDEBUG)
+        Serial.println("Checksum is: GOOD");
     return true;
 }
 
-void figureOutChangedAttributes(const uint8_t *statusMsg) {
+void figureOutChangedAttributes(const uint8_t *statusMsg)
+{
     String statOutput = "";
-    if (ISDEBUG) statOutput += "Pump status: \n";
+    if (ISDEBUG)
+        statOutput += "Pump status: \n";
 
-    if (pumpAddress != pumpStatusStruct.pumpAddr) {
+    if (pumpAddress != pumpStatusStruct.pumpAddr)
+    {
         pumpStatusStruct.pumpAddr = pumpAddress;
-        if (aflib->setAttribute8(AF_STATUS__CURRENT_PUMP_ADDRESS, pumpStatusStruct.pumpAddr) != afSUCCESS) {
-            if (ISDEBUG) Serial.println("Couldn't set current pump address attribute");
+        if (af_lib_set_attribute_8(aflib, AF_STATUS__CURRENT_PUMP_ADDRESS, pumpStatusStruct.pumpAddr) != AF_SUCCESS)
+        {
+            if (ISDEBUG)
+                Serial.println("Couldn't set current pump address attribute");
         }
     }
 
-    if (statusMsg[STAT_RUN_IDX] != pumpStatusStruct.running) {
+    if (statusMsg[STAT_RUN_IDX] != pumpStatusStruct.running)
+    {
         pumpStatusStruct.running = statusMsg[STAT_RUN_IDX];
-        if (ISDEBUG) statOutput += "\tRUN: " + String(statusMsg[STAT_RUN_IDX]) + "\n";
+        if (ISDEBUG)
+            statOutput += "\tRUN: " + String(statusMsg[STAT_RUN_IDX]) + "\n";
 
-        if (aflib->setAttribute8(AF_STATUS__PUMP_RUNNING_STATE, pumpStatusStruct.running) != afSUCCESS) {
-            if (ISDEBUG) Serial.println("Couldn't set running status attribute");
+        if (af_lib_set_attribute_8(aflib, AF_STATUS__PUMP_RUNNING_STATE, pumpStatusStruct.running) != AF_SUCCESS)
+        {
+            if (ISDEBUG)
+                Serial.println("Couldn't set running status attribute");
         }
     }
 
-    if (statusMsg[STAT_MODE_IDX] != pumpStatusStruct.mode) {
+    if (statusMsg[STAT_MODE_IDX] != pumpStatusStruct.mode)
+    {
         pumpStatusStruct.mode = statusMsg[STAT_MODE_IDX];
-        if (ISDEBUG) statOutput += "\tMOD: " + String(statusMsg[STAT_MODE_IDX]) + "\n";
+        if (ISDEBUG)
+            statOutput += "\tMOD: " + String(statusMsg[STAT_MODE_IDX]) + "\n";
 
-        if (aflib->setAttribute8(AF_STATUS__PUMP_MODE, pumpStatusStruct.mode) != afSUCCESS) {
-            if (ISDEBUG) Serial.println("Couldn't set mode attribute");
+        if (af_lib_set_attribute_8(aflib, AF_STATUS__PUMP_MODE, pumpStatusStruct.mode) != AF_SUCCESS)
+        {
+            if (ISDEBUG)
+                Serial.println("Couldn't set mode attribute");
         }
     }
 
-    if (statusMsg[STAT_STATE_IDX] != pumpStatusStruct.drive_state) {
+    if (statusMsg[STAT_STATE_IDX] != pumpStatusStruct.drive_state)
+    {
         pumpStatusStruct.drive_state = statusMsg[STAT_STATE_IDX];
-        if (ISDEBUG) statOutput += "\tSTE: " + String(statusMsg[STAT_STATE_IDX]) + "\n";
+        if (ISDEBUG)
+            statOutput += "\tSTE: " + String(statusMsg[STAT_STATE_IDX]) + "\n";
 
-        if (aflib->setAttribute8(AF_STATUS__PUMP_DRIVE_STATE, pumpStatusStruct.drive_state) != afSUCCESS) {
-            if (ISDEBUG) Serial.println("Couldn't set drive state attribute");
+        if (af_lib_set_attribute_8(aflib, AF_STATUS__PUMP_DRIVE_STATE, pumpStatusStruct.drive_state) != AF_SUCCESS)
+        {
+            if (ISDEBUG)
+                Serial.println("Couldn't set drive state attribute");
         }
     }
 
     uint16_t pwr_usage = (statusMsg[STAT_PWR_HB_IDX] * 256) + statusMsg[STAT_PWR_LB_IDX];
-    if (pwr_usage != pumpStatusStruct.pwr_usage) {
+    if (pwr_usage != pumpStatusStruct.pwr_usage)
+    {
         pumpStatusStruct.pwr_usage = pwr_usage;
-        if (ISDEBUG) statOutput += "\tPWR: " + String(pwr_usage) + " WATT" + "\n";
+        if (ISDEBUG)
+            statOutput += "\tPWR: " + String(pwr_usage) + " WATT" + "\n";
 
-        if (aflib->setAttribute16(AF_STATUS__PUMP_POWER_USAGE__W_, pumpStatusStruct.pwr_usage) != afSUCCESS) {
-            if (ISDEBUG) Serial.println("Couldn't set power usage attribute");
+        if (af_lib_set_attribute_16(aflib, AF_STATUS__PUMP_POWER_USAGE__W_, pumpStatusStruct.pwr_usage) != AF_SUCCESS)
+        {
+            if (ISDEBUG)
+                Serial.println("Couldn't set power usage attribute");
         }
     }
 
     uint16_t speed = (statusMsg[STAT_RPM_HB_IDX] * 256) + statusMsg[STAT_RPM_LB_IDX];
-    if (speed != pumpStatusStruct.speed) {
+    if (speed != pumpStatusStruct.speed)
+    {
         pumpStatusStruct.speed = speed;
-        if (ISDEBUG) statOutput += "\tRPM: " + String(speed) + " RPM" + "\n";
+        if (ISDEBUG)
+            statOutput += "\tRPM: " + String(speed) + " RPM" + "\n";
 
-        if (aflib->setAttribute16(AF_STATUS__PUMP_SPEED__RPM_, pumpStatusStruct.speed) != afSUCCESS) {
-            if (ISDEBUG) Serial.println("Couldn't set speed attribute");
+        if (af_lib_set_attribute_16(aflib, AF_STATUS__PUMP_SPEED__RPM_, pumpStatusStruct.speed) != AF_SUCCESS)
+        {
+            if (ISDEBUG)
+                Serial.println("Couldn't set speed attribute");
         }
     }
 
-    if (statusMsg[STAT_GPM_IDX] != pumpStatusStruct.flow_rate) {
+    if (statusMsg[STAT_GPM_IDX] != pumpStatusStruct.flow_rate)
+    {
         pumpStatusStruct.flow_rate = statusMsg[STAT_GPM_IDX];
-        if (ISDEBUG) statOutput += "\tGPM: " + String(statusMsg[STAT_GPM_IDX]) + " GPM" + "\n";
+        if (ISDEBUG)
+            statOutput += "\tGPM: " + String(statusMsg[STAT_GPM_IDX]) + " GPM" + "\n";
 
-        if (aflib->setAttribute8(AF_STATUS__PUMP_FLOW_RATE__GPM_, pumpStatusStruct.flow_rate) != afSUCCESS) {
-            if (ISDEBUG) Serial.println("Couldn't set flow rate attribute");
+        if (af_lib_set_attribute_8(aflib, AF_STATUS__PUMP_FLOW_RATE__GPM_, pumpStatusStruct.flow_rate) != AF_SUCCESS)
+        {
+            if (ISDEBUG)
+                Serial.println("Couldn't set flow rate attribute");
         }
     }
 
-    if (statusMsg[STAT_PPC_IDX] != pumpStatusStruct.ppc_levels) {
+    if (statusMsg[STAT_PPC_IDX] != pumpStatusStruct.ppc_levels)
+    {
         pumpStatusStruct.ppc_levels = statusMsg[STAT_PPC_IDX];
-        if (ISDEBUG) statOutput += "\tPPC: " + String(statusMsg[STAT_PPC_IDX]) + " %" + "\n";
+        if (ISDEBUG)
+            statOutput += "\tPPC: " + String(statusMsg[STAT_PPC_IDX]) + " %" + "\n";
 
-        if (aflib->setAttribute8(AF_STATUS__PUMP_PPC_LEVELS____, pumpStatusStruct.speed) != afSUCCESS) {
-            if (ISDEBUG) Serial.println("Couldn't set PPC levels attribute");
+        if (af_lib_set_attribute_8(aflib, AF_STATUS__PUMP_PPC_LEVELS____, pumpStatusStruct.speed) != AF_SUCCESS)
+        {
+            if (ISDEBUG)
+                Serial.println("Couldn't set PPC levels attribute");
         }
     }
 
-    if (statusMsg[STAT_B09_IDX] != pumpStatusStruct.b09) {
+    if (statusMsg[STAT_B09_IDX] != pumpStatusStruct.b09)
+    {
         pumpStatusStruct.b09 = statusMsg[STAT_B09_IDX];
-        if (ISDEBUG) statOutput += "\tB09: " + String(statusMsg[STAT_B09_IDX]) + "\n";
+        if (ISDEBUG)
+            statOutput += "\tB09: " + String(statusMsg[STAT_B09_IDX]) + "\n";
 
-        if (aflib->setAttribute8(AF_STATUS__PUMP_BYTE_09____, pumpStatusStruct.b09) != afSUCCESS) {
-            if (ISDEBUG) Serial.println("Couldn't set byte 09 attribute");
+        if (af_lib_set_attribute_8(aflib, AF_STATUS__PUMP_BYTE_09____, pumpStatusStruct.b09) != AF_SUCCESS)
+        {
+            if (ISDEBUG)
+                Serial.println("Couldn't set byte 09 attribute");
         }
     }
 
-    if (statusMsg[STAT_ERR_IDX] != pumpStatusStruct.error_code) {
+    if (statusMsg[STAT_ERR_IDX] != pumpStatusStruct.error_code)
+    {
         pumpStatusStruct.error_code = statusMsg[STAT_ERR_IDX];
-        if (ISDEBUG) statOutput += "\tERR: " + String(statusMsg[STAT_ERR_IDX]) + "\n";
+        if (ISDEBUG)
+            statOutput += "\tERR: " + String(statusMsg[STAT_ERR_IDX]) + "\n";
 
-        if (aflib->setAttribute8(AF_STATUS__PUMP_ERROR_CODE, pumpStatusStruct.error_code) != afSUCCESS) {
-            if (ISDEBUG) Serial.println("Couldn't set error code attribute");
+        if (af_lib_set_attribute_8(aflib, AF_STATUS__PUMP_ERROR_CODE, pumpStatusStruct.error_code) != AF_SUCCESS)
+        {
+            if (ISDEBUG)
+                Serial.println("Couldn't set error code attribute");
         }
     }
 
-    if (statusMsg[STAT_B11_IDX] != pumpStatusStruct.b11) {
+    if (statusMsg[STAT_B11_IDX] != pumpStatusStruct.b11)
+    {
         pumpStatusStruct.b11 = statusMsg[STAT_B11_IDX];
-        if (ISDEBUG) statOutput += "\tB11: " + String(statusMsg[STAT_B11_IDX]) + "\n";
+        if (ISDEBUG)
+            statOutput += "\tB11: " + String(statusMsg[STAT_B11_IDX]) + "\n";
 
-        if (aflib->setAttribute8(AF_STATUS__PUMP_BYTE_11____, pumpStatusStruct.b11) != afSUCCESS) {
-            if (ISDEBUG) Serial.println("Couldn't set byte 11 attribute");
+        if (af_lib_set_attribute_8(aflib, AF_STATUS__PUMP_BYTE_11____, pumpStatusStruct.b11) != AF_SUCCESS)
+        {
+            if (ISDEBUG)
+                Serial.println("Couldn't set byte 11 attribute");
         }
     }
 
-    if (statusMsg[STAT_TIMER_IDX] != pumpStatusStruct.timer) {
+    if (statusMsg[STAT_TIMER_IDX] != pumpStatusStruct.timer)
+    {
         pumpStatusStruct.timer = statusMsg[STAT_TIMER_IDX];
-        if (ISDEBUG) statOutput += "\tTMR: " + String(statusMsg[STAT_TIMER_IDX]) + " MIN" + "\n";
+        if (ISDEBUG)
+            statOutput += "\tTMR: " + String(statusMsg[STAT_TIMER_IDX]) + " MIN" + "\n";
 
-        if (aflib->setAttribute16(AF_STATUS__PUMP_TIMER__MIN_, pumpStatusStruct.timer) != afSUCCESS) {
-            if (ISDEBUG) Serial.println("Couldn't set timer attribute");
+        if (af_lib_set_attribute_16(aflib, AF_STATUS__PUMP_TIMER__MIN_, pumpStatusStruct.timer) != AF_SUCCESS)
+        {
+            if (ISDEBUG)
+                Serial.println("Couldn't set timer attribute");
         }
     }
 
@@ -718,21 +874,27 @@ void figureOutChangedAttributes(const uint8_t *statusMsg) {
     clk[3] = '0' + statusMsg[STAT_CLK_MIN_IDX] / 10;
     clk[4] = '0' + statusMsg[STAT_CLK_MIN_IDX] % 10;
 
-    if (strcmp(clk, pumpStatusStruct.clock) != 0) {
+    if (strcmp(clk, pumpStatusStruct.clock) != 0)
+    {
         strcpy(pumpStatusStruct.clock, clk);
-        if (ISDEBUG) statOutput += "\tCLK: " + String(clk) + "\n";
+        if (ISDEBUG)
+            statOutput += "\tCLK: " + String(clk) + "\n";
 
-        if (aflib->setAttribute8(AF_STATUS__PUMP_CLOCK__HH_MM_, pumpStatusStruct.clock) != afSUCCESS) {
-            if (ISDEBUG) Serial.println("Couldn't set clock attribute");
+        if (af_lib_set_attribute_8(aflib, AF_STATUS__PUMP_CLOCK__HH_MM_, pumpStatusStruct.clock) != AF_SUCCESS)
+        {
+            if (ISDEBUG)
+                Serial.println("Couldn't set clock attribute");
         }
     }
 
-    if (ISDEBUG) {
+    if (ISDEBUG)
+    {
         Serial.print(statOutput);
     }
 }
 
-void reset() {
+void reset()
+{
     // Stop the timer
     timer1.stop(commandTtlTimerId);
     timer1.stop(extProgramTimerId);
@@ -749,7 +911,8 @@ void reset() {
 /*
  * Callback to query pump status every 15 seconds, if we are idle
  */
-void queryStatusCb() {
+void queryStatusCb()
+{
     Serial.println("Status query callback executing... commandStage: " + String(commandStage));
     uint8_t c = CMD_STATUS;
     queuePumpInstruction(&c);
@@ -758,24 +921,28 @@ void queryStatusCb() {
 /*
  * Callback that will reset the message buffers, if we haven't received a complete response from the pump within a given timewindow
  */
-void commandTimeoutCb() {
+void commandTimeoutCb()
+{
     Serial.println("Command timeout callback executing... commandStage: " + String(commandStage) + ", message buffer size: " + String((msgBufPtr - msgBuffer)));
 
-    if (commandStage != CMD_STAGE_IDLE) {
+    if (commandStage != CMD_STAGE_IDLE)
+    {
         reset();
     }
-
-
 }
 
 /*
  * Repeat the last program to run every 30 seconds. Otherwise, the pump will stop executing the program and halt the pump
  */
-void repeatExtProgramCmdCb() {
-    if (lastCommand >= CMD_RUN_PROG_1 && lastCommand <= CMD_RUN_PROG_4) {
+void repeatExtProgramCmdCb()
+{
+    if (lastCommand >= CMD_RUN_PROG_1 && lastCommand <= CMD_RUN_PROG_4)
+    {
         uint8_t c = lastCommand;
         queuePumpInstruction(&c);
-    } else {
+    }
+    else
+    {
         timer1.stop(extProgramTimerId);
         extProgramTimerId = -1;
     }
@@ -783,49 +950,123 @@ void repeatExtProgramCmdCb() {
 
 //region afLib integration
 /*
- * Define this wrapper to allow the instance method to be called
- * when the interrupt fires. We do this because attachInterrupt
- * requires a method with no parameters and the instance method
- * has an invisible parameter (this).
+ * Callback executed any time ASR has information for the MCU.
  */
-void ISRWrapper() {
-    if (aflib) {
-        aflib->mcuISR();
-    }
-}
-
-/*
- * This is called when the service changes one of our attributes.
- */
-void onAttrSet(const uint8_t requestId, const uint16_t attributeId, const uint16_t valueLen, const uint8_t *value) {
+void onAttrSet(const af_lib_event_type_t eventType, const af_lib_error_t error, const uint16_t attributeId, const uint16_t valueLen, const uint8_t *value)
+{
     Serial.println("Got attribute update: " + String(attributeId) + ", " + String(*value));
 
-    switch (attributeId) {
+    switch (eventType)
+    {
+    case AF_LIB_EVENT_UNKNOWN:
+        break;
+
+    case AF_LIB_EVENT_ASR_SET_RESPONSE:
+        // Response to af_lib_set_attribute() for an ASR attribute
+        break;
+
+    case AF_LIB_EVENT_MCU_SET_REQ_SENT:
+        // Request from af_lib_set_attribute() for an MCU attribute has been sent to ASR
+        break;
+
+    case AF_LIB_EVENT_MCU_SET_REQ_REJECTION:
+        // Request from af_lib_set_attribute() for an MCU attribute was rejected by ASR
+        break;
+
+    case AF_LIB_EVENT_ASR_GET_RESPONSE:
+        // Response to af_lib_get_attribute()
+        break;
+
+    case AF_LIB_EVENT_MCU_DEFAULT_NOTIFICATION:
+        // Unsolicited default notification for an MCU attribute
+        Serial.println("AF_LIB_EVENT_MCU_DEFAULT_NOTIFICATION");
+        Serial.print("attributeId: ");
+        Serial.print(attributeId);
+        Serial.print(", default value ");
+        Serial.println(*value);
+
+        //Need to update the value we are checking against in loop() when modifying the profile!
+        ++syncNeeded;
+
+        break;
+
+    case AF_LIB_EVENT_ASR_NOTIFICATION:
+        // Unsolicited notification of non-MCU attribute change
+        switch (attributeId)
+        {
+        case AF_SYSTEM_ASR_STATE:
+            Serial.print("ASR state: ");
+            switch (value[0])
+            {
+            case AF_MODULE_STATE_REBOOTED:
+                Serial.println("Rebooted");
+                asrReady = false;
+                break;
+
+            case AF_MODULE_STATE_LINKED:
+                Serial.println("Linked");
+#if AF_BOARD == AF_BOARD_MODULO_1
+                // For Modulo-1 this is the last connected state you'll get
+                asrReady = true;
+#endif
+                break;
+
+            case AF_MODULE_STATE_UPDATING:
+                Serial.println("Updating");
+                break;
+
+            case AF_MODULE_STATE_UPDATE_READY:
+                Serial.println("Update ready - reboot needed");
+                rebootPending = true;
+                break;
+
+            case AF_MODULE_STATE_INITIALIZED:
+                Serial.println("Initialized");
+                asrReady = true;
+                break;
+
+            case AF_MODULE_STATE_RELINKED:
+                Serial.println("Reinked");
+                break;
+
+            default:
+                Serial.print("Unexpected state - ");
+                Serial.println(value[0]);
+                break;
+            }
+            break;
+
+        default:
+            break;
+        }
+        break;
+
+    case AF_LIB_EVENT_MCU_SET_REQUEST:
+        // Request from ASR to MCU to set an MCU attribute, requires a call to af_lib_send_set_response()
+        // Basically, here we handle requests from the cloud and send them to the pump.
+        switch (attributeId)
+        {
         case AF_PUMP_COMMAND:
             queuePumpInstruction(value);
+            af_lib_send_set_response(aflib, AF_PUMP_COMMAND, true, valueLen, value);
             break;
         case AF_SET_PUMP_ADDRESS:
             pumpAddress = *value;
+            af_lib_send_set_response(aflib, AF_SET_PUMP_ADDRESS, true, valueLen, value);
             break;
         case AF_SET_CONTROLLER_ADDRESS:
             controllerAddress = *value;
+            af_lib_send_set_response(aflib, AF_SET_CONTROLLER_ADDRESS, true, valueLen, value);
             break;
         default:
             Serial.println("Attribute ID not handled: " + String(attributeId));
+            af_lib_send_set_response(aflib, attributeId, false, valueLen, value);
             break;
+        }
+        break;
+
+    default:
+        break;
     }
-
-    //if (aflib->setAttributeComplete(requestId, attributeId, valueLen, value) != afSUCCESS) {
-    //    Serial.println("setAttributeComplete failed!");
-    //}
-}
-
-/*
- * This is called when either an Afero attribute has been changed via setAttribute or in response
- * to a getAttribute call.
- */
-void onAttrSetComplete(const uint8_t requestId, const uint16_t attributeId, const uint16_t valueLen, const uint8_t *value) {
-    // This is a noop in our case as there is nothing for us to do if an attribute is setb
-    Serial.println("onAttrSetComplete: " + String(attributeId) + ":" + String(*value));
 }
 //endregion afLib integration

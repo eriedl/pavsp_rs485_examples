@@ -1,346 +1,333 @@
 {
-	"deviceDescriptionId": "51ae4387-9766-41a1-b476-33bd1d35a878",
-	"partnerId": "db95515f-dc4c-4bf1-aefc-7dfb22ca9519",
 	"schemaVersion": 2,
+	"deviceDescriptionId": "",
+	"partnerId": "",
+	"createdTimestamp": 1559858138108,
 	"services": [
 		{
 			"id": 1,
 			"attributes": [
 				{
 					"id": 1,
-					"dataType": "SINT16",
 					"semanticType": "Pump Command",
 					"operations": [
 						"READ",
 						"WRITE"
 					],
-					"defaultValue": "0000",
-					"value": "0",
-					"length": 2
+					"dataType": "SINT16",
+					"length": 2,
+					"value": "0"
 				},
 				{
 					"id": 2,
-					"dataType": "SINT8",
 					"semanticType": "Set Controller Address",
 					"operations": [
 						"READ",
 						"WRITE"
 					],
-					"defaultValue": "20",
-					"value": "32",
-					"length": 1
+					"dataType": "SINT8",
+					"length": 1,
+					"value": "32"
 				},
 				{
 					"id": 3,
-					"dataType": "SINT8",
 					"semanticType": "Set Pump Address",
 					"operations": [
 						"READ",
 						"WRITE"
 					],
-					"defaultValue": "60",
-					"value": "96",
-					"length": 1
+					"dataType": "SINT8",
+					"length": 1,
+					"value": "96"
 				},
 				{
 					"id": 4,
-					"dataType": "SINT8",
 					"semanticType": "Status: Pump Running State",
 					"operations": [
 						"READ"
 					],
-					"defaultValue": "04",
-					"value": "4",
-					"length": 1
+					"dataType": "SINT8",
+					"length": 1,
+					"value": "4"
 				},
 				{
 					"id": 5,
-					"dataType": "SINT8",
 					"semanticType": "Status: Pump Mode",
 					"operations": [
 						"READ"
 					],
-					"defaultValue": "00",
-					"value": "0",
-					"length": 1
+					"dataType": "SINT8",
+					"length": 1,
+					"value": "0"
 				},
 				{
 					"id": 6,
-					"dataType": "SINT8",
 					"semanticType": "Status: Pump Drive State",
 					"operations": [
 						"READ"
 					],
-					"defaultValue": "00",
-					"value": "0",
-					"length": 1
+					"dataType": "SINT8",
+					"length": 1,
+					"value": "0"
 				},
 				{
 					"id": 7,
-					"dataType": "SINT16",
 					"semanticType": "Status: Pump Power Usage (w)",
 					"operations": [
 						"READ"
 					],
-					"defaultValue": "0000",
-					"value": "0",
-					"length": 2
+					"dataType": "SINT16",
+					"length": 2,
+					"value": "0"
 				},
 				{
 					"id": 8,
-					"dataType": "SINT16",
 					"semanticType": "Status: Pump Speed (rpm)",
 					"operations": [
 						"READ"
 					],
-					"defaultValue": "0000",
-					"value": "0",
-					"length": 2
+					"dataType": "SINT16",
+					"length": 2,
+					"value": "0"
 				},
 				{
 					"id": 9,
-					"dataType": "SINT8",
 					"semanticType": "Status: Pump Flow Rate (gpm)",
 					"operations": [
 						"READ"
 					],
-					"defaultValue": "00",
-					"value": "0",
-					"length": 1
+					"dataType": "SINT8",
+					"length": 1,
+					"value": "0"
 				},
 				{
 					"id": 10,
-					"dataType": "SINT8",
 					"semanticType": "Status: Pump PPC Levels (%)",
 					"operations": [
 						"READ"
 					],
-					"defaultValue": "00",
-					"value": "0",
-					"length": 1
+					"dataType": "SINT8",
+					"length": 1,
+					"value": "0"
 				},
 				{
 					"id": 11,
-					"dataType": "SINT8",
 					"semanticType": "Status: Pump Byte 09 (?)",
 					"operations": [
 						"READ"
 					],
-					"defaultValue": "00",
-					"value": "0",
-					"length": 1
+					"dataType": "SINT8",
+					"length": 1,
+					"value": "0"
 				},
 				{
 					"id": 12,
-					"dataType": "SINT8",
 					"semanticType": "Status: Pump Error Code",
 					"operations": [
 						"READ"
 					],
-					"defaultValue": "00",
-					"value": "0",
-					"length": 1
+					"dataType": "SINT8",
+					"length": 1,
+					"value": "0"
 				},
 				{
 					"id": 13,
-					"dataType": "SINT8",
 					"semanticType": "Status: Pump Byte 11 (?)",
 					"operations": [
 						"READ"
 					],
-					"defaultValue": "00",
-					"value": "0",
-					"length": 1
+					"dataType": "SINT8",
+					"length": 1,
+					"value": "0"
 				},
 				{
 					"id": 14,
-					"dataType": "SINT16",
 					"semanticType": "Status: Pump Timer (min)",
 					"operations": [
 						"READ"
 					],
-					"defaultValue": "0000",
-					"value": "0",
-					"length": 2
+					"dataType": "SINT16",
+					"length": 2,
+					"value": "0"
 				},
 				{
 					"id": 15,
-					"dataType": "UTF8S",
 					"semanticType": "Status: Pump Clock (HH:mm)",
 					"operations": [
 						"READ"
 					],
-					"defaultValue": "30303A3030",
-					"value": "00:00",
-					"length": 5
+					"dataType": "UTF8S",
+					"length": 5,
+					"value": "00:00"
 				},
 				{
 					"id": 16,
-					"dataType": "SINT8",
 					"semanticType": "Status: Current Pump Address",
 					"operations": [
 						"READ"
 					],
-					"defaultValue": "60",
-					"value": "96",
-					"length": 1
+					"dataType": "SINT8",
+					"length": 1,
+					"value": "96"
 				},
 				{
 					"id": 2001,
-					"dataType": "SINT64",
 					"semanticType": "Bootloader Version",
+					"dataType": "SINT64",
 					"operations": [
 						"READ"
 					],
-					"length": 8,
-					"value": null
+					"value": null,
+					"length": 8
 				},
 				{
 					"id": 2002,
-					"dataType": "SINT64",
 					"semanticType": "Softdevice Version",
+					"dataType": "SINT64",
 					"operations": [
 						"READ"
 					],
-					"length": 8,
-					"value": null
+					"value": null,
+					"length": 8
 				},
 				{
 					"id": 2003,
-					"dataType": "SINT64",
 					"semanticType": "Application Version",
+					"dataType": "SINT64",
 					"operations": [
 						"READ"
 					],
-					"length": 8,
-					"value": null
+					"value": null,
+					"length": 8
 				},
 				{
 					"id": 2004,
-					"dataType": "SINT64",
 					"semanticType": "Profile Version",
+					"dataType": "SINT64",
 					"operations": [
 						"READ"
 					],
-					"length": 8,
-					"value": null
+					"value": null,
+					"length": 8
 				},
 				{
-					"id": 60000,
-					"dataType": "BOOLEAN",
-					"semanticType": "Security Enabled",
+					"id": 65001,
+					"dataType": "BYTES",
+					"semanticType": "UTC Offset Data",
 					"operations": [
-						"READ"
+						"READ",
+						"WRITE"
 					],
-					"defaultValue": "01",
-					"value": "true",
-					"length": 1
+					"value": null,
+					"length": 8
+				},
+				{
+					"id": 65002,
+					"dataType": "SINT32",
+					"semanticType": "Maximum Re-link Interval",
+					"operations": [
+						"READ",
+						"WRITE",
+						"MCU"
+					],
+					"value": "604800",
+					"length": 4
+				},
+				{
+					"id": 65003,
+					"dataType": "SINT32",
+					"semanticType": "Attributes CRC32",
+					"operations": [
+						"WRITE",
+						"MCU"
+					],
+					"value": null,
+					"length": 4
 				},
 				{
 					"id": 65012,
-					"dataType": "SINT32",
 					"semanticType": "Command",
+					"dataType": "SINT32",
 					"operations": [
 						"WRITE"
 					],
-					"length": 4,
-					"value": null
+					"value": null,
+					"length": 4
 				},
 				{
 					"id": 65013,
+					"semanticType": "ASR State",
 					"dataType": "SINT8",
-					"semanticType": "Hachi State",
 					"operations": [
 						"READ"
 					],
-					"length": 1,
-					"value": null
-				},
-				{
-					"id": 65014,
-					"dataType": "SINT8",
-					"semanticType": "Low Battery Warn",
-					"operations": [
-						"READ"
-					],
-					"length": 1,
-					"value": null
-				},
-				{
-					"id": 65015,
-					"dataType": "SINT32",
-					"semanticType": "Linked Timestamp",
-					"operations": [
-						"WRITE"
-					],
-					"length": 4,
-					"value": null
-				},
-				{
-					"id": 65016,
-					"dataType": "SINT8",
-					"semanticType": "Advertising Secret Duration",
-					"operations": [
-						"WRITE"
-					],
-					"defaultValue": "05",
-					"value": "5",
+					"value": null,
 					"length": 1
 				},
 				{
-					"id": 65017,
-					"dataType": "BYTES",
-					"semanticType": "Advertising Secret",
+					"id": 65014,
+					"semanticType": "Low Power Warn",
+					"dataType": "SINT8",
 					"operations": [
 						"READ"
 					],
-					"length": 32,
-					"value": null
+					"value": null,
+					"length": 1
 				},
 				{
-					"id": 65018,
-					"dataType": "SINT16",
-					"semanticType": "Attribute ACK",
+					"id": 65015,
+					"semanticType": "Linked Timestamp",
+					"dataType": "SINT32",
 					"operations": [
 						"WRITE"
 					],
-					"length": 2,
-					"value": null
+					"value": null,
+					"length": 4
+				},
+				{
+					"id": 65018,
+					"semanticType": "Attribute ACK",
+					"dataType": "SINT16",
+					"operations": [
+						"WRITE",
+						"MCU"
+					],
+					"value": null,
+					"length": 2
 				},
 				{
 					"id": 65019,
-					"dataType": "UTF8S",
 					"semanticType": "Reboot Reason",
+					"dataType": "UTF8S",
 					"operations": [
 						"READ"
 					],
-					"length": 100,
-					"value": null
+					"value": null,
+					"length": 100
 				},
 				{
 					"id": 65020,
-					"dataType": "BYTES",
 					"semanticType": "BLE Comms",
+					"dataType": "BYTES",
 					"operations": [
-						"READ"
+						"READ",
+						"MCU"
 					],
-					"defaultValue": "fa000000180018000C00A00F",
 					"value": "fa000000180018000C00A00F",
 					"length": 12
 				},
 				{
 					"id": 65021,
-					"dataType": "BOOLEAN",
-					"semanticType": "SPI Enabled",
+					"semanticType": "MCU Interface",
+					"dataType": "SINT8",
 					"operations": [
-						"READ"
+						"READ",
+						"MCU"
 					],
-					"defaultValue": "01",
-					"value": "true",
+					"value": "1",
 					"length": 1
 				}
 			]
 		}
-	],
-	"createdTimestamp": 1465525323370
+	]
 }

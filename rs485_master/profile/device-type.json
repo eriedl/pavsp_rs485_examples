@@ -1,11 +1,32 @@
 {
-	"createdTimestamp": 1465432665970,
-	"description": "A simple status monitor for Pentair pool pumps",
-	"deviceTags": [],
-	"deviceTypeId": "ff9a47f1-a207-4e5a-a0c5-d4cb43ee3160",
-	"disconnectNotificationLevel": "LOW",
 	"name": "Pentair Pump Status Monitor",
-	"partnerId": "",
+	"description": "A simple status monitor for Pentair pool pumps",
+	"createdTimestamp": 1465432665970,
 	"updatedTimestamp": 0,
-	"virtual": false
+	"deviceTypeId": "ff9a47f1-a207-4e5a-a0c5-d4cb43ee3160",
+	"partnerId": "",
+	"disconnectNotificationLevel": "LOW",
+	"virtual": false,
+	"deviceTags": [],
+	"moduleConfiguration": {
+		"id": "70ad45b7-01cb-4480-9ff4-4bf7038badb0",
+		"name": "Modulo-1",
+		"module": {
+			"id": "2ac32178-1a4a-4e27-b712-8cbda49e04dd",
+			"name": "ASR-1",
+			"createdTimestampMs": 1497546303479,
+			"updatedTimestampMs": 1497546303479
+		},
+		"minimumFirmwareVersions": {
+			"2001": "0",
+			"2002": "0",
+			"2003": "20578",
+			"2004": "0",
+			"2005": "0",
+			"2006": "0"
+		},
+		"developmentTarget": true,
+		"createdTimestampMs": 1497546414108,
+		"updatedTimestampMs": 1497546414108
+	}
 }

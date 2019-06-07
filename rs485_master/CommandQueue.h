@@ -5,17 +5,20 @@
 #ifndef RS485_MASTER_COMMANDQUEUE_H
 #define RS485_MASTER_COMMANDQUEUE_H
 
-struct CommandStruct {
+struct CommandStruct
+{
     uint8_t *command;
-    size_t  size;
+    size_t size;
 };
 
-struct CommandNode {
+struct CommandNode
+{
     CommandStruct *commandInfo;
     CommandNode *nextNode;
 };
 
-class CommandQueue {
+class CommandQueue
+{
 public:
     CommandQueue();
     uint32_t Enqueue(CommandStruct *commandInfo);
